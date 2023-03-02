@@ -1,0 +1,77 @@
+from __gin__ import dynamic_registration
+
+import optax
+import seqio
+
+from t5x import optimizers
+from t5x import decoding
+from t5x import models
+from t5x.examples.decoder_only import network
+
+# ------------------- Loss HParam ----------------------------------------------
+Z_LOSS = 0.0001
+LABEL_SMOOTHING = 0.0
+# NOTE: When fine-tuning the public T5 checkpoints (trained in T5 MeshTF)
+# the loss normalizing factor should be set to pretraining batch_size *
+# target_token_length.
+LOSS_NORMALIZING_FACTOR = None
+# Dropout should be specified in the "run" files
+DROPOUT_RATE = %gin.REQUIRED
+
+# Vocabulary (shared by encoder and decoder)
+VOCABULARY = @seqio.ByteVocabulary()
+
+# ------------------- Optimizer ------------------------------------------------
+OPTIMIZER = @optimizers.chain()
+
+optimizers.chain:
+  transformations = [@optax.clip_by_global_norm(), @optax.adamw()]
+
+optax.clip_by_global_norm:
+  max_norm = 1.0
+
+optax.adamw:
+  learning_rate = @optax.warmup_cosine_decay_schedule()
+  weight_decay = 0.1
+  b1 = 0.9
+  b2 = 0.95
+
+optax.warmup_cosine_decay_schedule:
+  init_value = 0.0
+  peak_value = 2e-4
+  end_value = 2e-5
+  warmup_steps = 3000  # From https://arxiv.org/pdf/2001.08361.pdf
+  decay_steps = %TRAIN_STEPS
+
+# ------------------- Model ----------------------------------------------------
+MODEL = @models.DecoderOnlyModel()
+models.DecoderOnlyModel:
+  module = @network.DecoderWrapper()
+  vocabulary = %VOCABULARY
+  optimizer_def = %OPTIMIZER
+  decode_fn = @decoding.temperature_sample
+  z_loss = %Z_LOSS
+  label_smoothing = %LABEL_SMOOTHING
+  loss_normalizing_factor = %LOSS_NORMALIZING_FACTOR
+  inputs_bidirectional_attention = False
+
+models.DecoderOnlyModel.predict_batch_with_aux.num_decodes = 8
+
+decoding.temperature_sample:
+  temperature = 1.0
+  topk = 40
+
+# ------------------- Network specification ------------------------------------
+network.DecoderWrapper.config = @network.TransformerConfig()
+network.TransformerConfig:
+  vocab_size = 384  # vocab size rounded to a multiple of 128 for TPU efficiency
+  dtype = 'bfloat16'
+  emb_dim = 640
+  num_heads = 10
+  num_layers = 10
+  head_dim = 64
+  mlp_dim = 2560
+  mlp_activations = ('gelu', 'linear')
+  dropout_rate = %DROPOUT_RATE
+  logits_via_embedding = True
+
