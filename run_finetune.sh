@@ -17,13 +17,13 @@ for size in $FINTETUNE_SIZES
 do 
   echo "Processing size $size"
   
-  MODEL_DIR="gs://lang_agnostic/models/finetune/scratch_$LANGUAGE\_$MODEL_SIZE/"
+  MODEL_DIR="gs://lang_agnostic/models/finetune/scratch_${LANGUAGE}_${MODEL_SIZE}_${size}/"
 
   python3 ${T5X_DIR}/t5x/train.py \
     --gin_search_paths=${PROJECT_DIR} \
-    --gin_file="lang_transfer/configs/runs/finetune.$MODEL_SIZE.gin" \
+    --gin_file="lang_transfer/configs/runs/finetune.${MODEL_SIZE}.gin" \
     --gin.MODEL_DIR=\"${MODEL_DIR}\" \
-    --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.finetune.$LANGUAGE.$MODEL_SIZE.$size"\"
+    --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.finetune.${LANGUAGE}.${MODEL_SIZE}.${size}"\"
 done
 
 
