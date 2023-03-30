@@ -45,6 +45,8 @@ for (( i=0; i<$RUNS; i++ )); do
         --gin.EVAL_PERIOD=${EVAL_PERIOD} \
         --gin.WARMUP_STEPS=${WARMUP}
 
+    TRAIN_STEPS=$((TRAIN_STEPS+10682))  # To account for pretraining steps
+
     python3 ${T5X_DIR}/t5x/train.py \
         --gin_search_paths=${PROJECT_DIR} \
         --gin_file="lang_transfer/configs/runs/finetune.${MODEL_SIZE}.gin" \
