@@ -173,7 +173,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("language", type=str)
     parser.add_argument(
-        "--sizes", type=float, nargs="+", default=[10e5, 10e6, 10e7, 10e8]
+        "--sizes", type=float, nargs="+", default=[60e5, 60e6, 60e7, 60e8]
     )
     parser.add_argument("--exact_size", action="store_true")
     parser.add_argument("--output_dir", type=Path, default=Path("./"))

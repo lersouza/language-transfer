@@ -1,68 +1,33 @@
 from __gin__ import dynamic_registration
 import __main__ as train_script
 
-import seqio
-
 from t5x import utils
 from t5x import trainer
 
 from lang_transfer import tasks
 
-include "t5x/configs/runs/pretrain.gin"  # We use the same pretraining settings as in (Kaplan, et al., 2021)
+include "t5x/configs/runs/pretrain.gin"
 include "lang_transfer/configs/models/70M.gin"
 
+# REQUIRED variables
+EVAL_STEPS = %gin.REQUIRED
+EVAL_PERIOD = %gin.REQUIRED
+
+# PREDEFINED variables
 BATCH_SIZE = 512
 MICRO_BATCHES = 4
+TASK_FEATURE_LENGTHS={"targets":1024}
+PRETRAINED_MODEL_PATH = []  # From scratch
+
 DROPOUT_RATE = 0.0
 
-TASK_FEATURE_LENGTHS = {"targets": 1024}
-TRAIN_STEPS = 5_000  # The greater dataset has 1B tokens, which would take ~1907 steps to go through
+# TRAIN script overrides
+train_script.train.eval_steps = %EVAL_STEPS
+train_script.train.eval_period = %EVAL_PERIOD
 
-# ------------------- Dataset -------------------------------------------------
-train/utils.DatasetConfig:
-  batch_size = %BATCH_SIZE
-  use_cached = False
-  pack = False
-  seed = 0
-  trim_output_features = False
+# MICRO-BATCHES configuration
+trainer.Trainer.num_microbatches = %MICRO_BATCHES
 
-train_eval/utils.DatasetConfig:
-  batch_size = %BATCH_SIZE
-  use_cached = False
-  pack = False
-  seed = 0
-  trim_output_features = False
-
-infer_eval/utils.DatasetConfig:
-  mixture_or_task_name = %MIXTURE_OR_TASK_NAME
-  task_feature_lengths = %TASK_FEATURE_LENGTHS 
-  split = "validation"
-  seed = 0
-  batch_size = %BATCH_SIZE
-  shuffle = False
-  use_cached = False
-  trim_output_features = False
-
-# ------------------- Train Spec ------------------------------------------------
-train_script.train:
-  eval_period = 1000
-  stats_period = None
-  random_seed = 0
-  use_hardware_rng = True
-  infer_eval_dataset_cfg = @infer_eval/utils.DatasetConfig()
-  inference_evaluator_cls = @seqio.Evaluator
-
-seqio.Evaluator:
-  logger_cls = [@seqio.PyLoggingLogger, @seqio.TensorBoardLogger, @seqio.JSONLogger]
-  num_examples = None  # Use all examples in the infer_eval dataset.
-  use_memory_cache = True
-
-utils.SaveCheckpointConfig:
-  period = 2000  # checkpoint frequency
-  save_dataset = True
-
+# PRETRAINED selection
 utils.RestoreCheckpointConfig:
-  restore_dataset = True
-
-trainer.Trainer:
-  num_microbatches = %MICRO_BATCHES
+    path = %PRETRAINED_MODEL_PATH
