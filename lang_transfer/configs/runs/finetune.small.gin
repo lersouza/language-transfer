@@ -10,13 +10,13 @@ include "t5x/configs/runs/pretrain.gin"
 include "lang_transfer/configs/models/70M.gin"
 
 # REQUIRED variables
-EVAL_STEPS = %gin.REQUIRED
 EVAL_PERIOD = %gin.REQUIRED
 
 # PREDEFINED variables
 BATCH_SIZE = 512
 MICRO_BATCHES = 4
 TASK_FEATURE_LENGTHS={"targets":1024}
+EVAL_STEPS = 600 # to run the validation over aprox 315789473 tokens 
 PRETRAINED_MODEL_PATH = []  # From scratch
 
 DROPOUT_RATE = 0.0
@@ -31,3 +31,8 @@ trainer.Trainer.num_microbatches = %MICRO_BATCHES
 # PRETRAINED selection
 utils.RestoreCheckpointConfig:
     path = %PRETRAINED_MODEL_PATH
+    mode = 'specific'
+    dtype = 'float32'
+
+utils.SaveCheckpointConfig:
+  period = %EVAL_PERIOD
