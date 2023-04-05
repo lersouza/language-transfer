@@ -34,17 +34,10 @@ optax.clip_by_global_norm:
   max_norm = 1.0
 
 optax.adamw:
-  learning_rate = @optax.warmup_cosine_decay_schedule()
+  learning_rate = 2e-4 # `learning_rate` is set by `Trainer.learning_rate_fn`. We use a default one here to initialize
   weight_decay = 0.1
   b1 = 0.9
   b2 = 0.95
-
-optax.warmup_cosine_decay_schedule:
-  init_value = 0.0
-  peak_value = 2e-4
-  end_value = 2e-5
-  warmup_steps = %WARMUP_STEPS
-  decay_steps = %TRAIN_STEPS
 
 # ------------------- Model ----------------------------------------------------
 MODEL = @models.DecoderOnlyModel()

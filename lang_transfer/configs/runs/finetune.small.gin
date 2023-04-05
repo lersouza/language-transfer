@@ -1,6 +1,8 @@
 from __gin__ import dynamic_registration
 import __main__ as train_script
 
+import optax
+
 from t5x import utils
 from t5x import trainer
 
@@ -25,8 +27,17 @@ DROPOUT_RATE = 0.0
 train_script.train.eval_steps = %EVAL_STEPS
 train_script.train.eval_period = %EVAL_PERIOD
 
-# MICRO-BATCHES configuration
-trainer.Trainer.num_microbatches = %MICRO_BATCHES
+# MICRO-BATCHES & LR SCHEDULER configuration
+trainer.Trainer:
+  num_microbatches = %MICRO_BATCHES
+  learning_rate_fn = @optax.warmup_cosine_decay_schedule()
+
+optax.warmup_cosine_decay_schedule:
+  init_value = 0.0
+  peak_value = 2e-4
+  end_value = 2e-5
+  warmup_steps = %WARMUP_STEPS
+  decay_steps = %TRAIN_STEPS
 
 # PRETRAINED selection
 utils.RestoreCheckpointConfig:
