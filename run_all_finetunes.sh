@@ -26,7 +26,7 @@ export PYTHONPATH="./"
 FINETUNE_SIZES=(6000000 60000000 600000000 6000000000)
 FINETUNE_EPOCH_STEPS=(11 114 1144 11444)  # number of steps to form an epoch
 WARMUP_STEPS=(0 30 300 3000)
-MODEL_BASE_DIR="gs://lang_agnostic/models/"
+MODEL_BASE_DIR="gs://lang_agnostic/models"
 PRETRAINED_MODEL_CHECKPOINT="gs://lang_agnostic/models/scratch_${PRETRAINED_LANGUAGE}_${MODEL_SIZE}_6000000000/checkpoint_10682/"
 
 RUNS=${#FINETUNE_SIZES[@]}
