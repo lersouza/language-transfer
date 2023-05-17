@@ -4,7 +4,7 @@ PROJECT_DIR="./lang_transfer/"
 T5X_DIR="./t5x"  # directory where the t5x is cloned.
 
 DATA_SIZE=6029312000
-MODEL_DIR="gs://lang_agnostic/models/scratch_${LANGUAGE}_small_${DATA_SIZE}/"
+MODEL_DIR="gs://lang_agnostic/models/pretrained_${LANGUAGE}_small_${DATA_SIZE}/"
 
 export PYTHONPATH="./"
 
