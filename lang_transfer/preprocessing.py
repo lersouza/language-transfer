@@ -1,6 +1,10 @@
 """ Preprocessing functions for pretraining our models. """
+import math
 
-from typing import Optional, Sequence
+import tensorflow as tf
+import gin
+
+from typing import Dict, Optional, Sequence
 from t5.data.preprocessors import (
     select_random_chunk,
     reduce_concat_tokens,
@@ -73,3 +77,24 @@ def group_texts(
     )
 
     return preprocessed_dataset
+
+
+@gin.configurable()
+def take_n_tokens(
+    dataset: tf.data.Dataset,
+    sequence_length: Dict[str, int],
+    n: int = 6_029_312_000,
+    feature_key: str = "targets",
+):
+    """
+    Limit the `dataset` to a specified number of tokens described by `n`.
+
+    This method is meant to be used at the end of the pipeline in order to
+    accurately limit the number of tokens to be seen by the model.
+    """
+    target_length = sequence_length.get(feature_key)
+    number_of_examples = math.ceil(n / target_length)
+
+    print("Taking", n, "tokens. Considering", number_of_examples, "to do so.")
+
+    return dataset.take(number_of_examples)

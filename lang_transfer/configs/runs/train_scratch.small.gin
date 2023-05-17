@@ -7,12 +7,14 @@ from t5x import utils
 from t5x import trainer
 
 from lang_transfer import tasks
+from lang_transfer import preprocessing
 
 include "t5x/configs/runs/pretrain.gin"
 include "lang_transfer/configs/models/70M.gin"
 
 # REQUIRED variables
 EVAL_PERIOD = %gin.REQUIRED
+NUMBER_OF_TOKENS = %gin.REQUIRED
 
 # PREDEFINED variables
 BATCH_SIZE = 512
@@ -40,8 +42,8 @@ optax.warmup_cosine_decay_schedule:
   decay_steps = %TRAIN_STEPS
 
 # CHECKPOINT Config
-utils.RestoreCheckpointConfig:
-  path = []  # initialize from scratch
-
 utils.SaveCheckpointConfig:
   period = %EVAL_PERIOD
+
+# TASKS Config
+preprocessing.take_n_tokens.n = %NUMBER_OF_TOKENS

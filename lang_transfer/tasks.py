@@ -4,6 +4,7 @@ import itertools
 import seqio
 import tensorflow as tf
 
+from datasets import load_dataset
 from lang_transfer import preprocessing
 
 
@@ -19,45 +20,48 @@ DEFAULT_PRE_PROCESSORS = [
     seqio.preprocessors.tokenize,
     preprocessing.group_texts,
     seqio.preprocessors.append_eos_after_trim,
+    preprocessing.take_n_tokens,
 ]
 
-PRETRAIN_LANGUAGES = ("en",)
-PRETRAIN_SIZES = ("6B",)
+ALL_LANGUAGES = (
+    "en",
+    "es",
+)
 
-FINETUNE_LANGUAGES = ("es",)
-FINETUNE_SIZES = (60e5, 60e6, 60e7, 60e8)
+def get_dataset(split, shuffle_files=False, seed=None, language="en"):
+    """
+    Returns a `tf.data.Dataset` object with the mC4 data for the specified `language`.
 
+    This method leverages 2 strategies:
 
-# ---------------- Pretrain tasks -----------------
-for lang in PRETRAIN_LANGUAGES:
-    seqio.TaskRegistry.add(
-        f"langagnostic.pretrain.{lang}.small",
-        source=seqio.TFExampleDataSource(
-            split_to_filepattern={
-                "train": f"gs://lang_agnostic/dataset/pretrain/mc4_{lang}_train_6000000000.tfrecord",
-                "validation": f"gs://lang_agnostic/dataset/pretrain/mc4_{lang}_validation_315789473.tfrecord",
-            },
-            feature_description={
-                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
-            },
-        ),
-        preprocessors=DEFAULT_PRE_PROCESSORS,
-        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
-        metric_fns=[],
+    * It uses Huggingface's streaming capability to avoid download the whole mc4, which
+      is useful when building smaller datasets from it
+
+    * It encapsulates the HF's dataset library inside a tf.data.Dataset created from a generator.
+    """
+    dataset = load_dataset("mc4", language, split=split, streaming=True)
+
+    def _get_iterator():
+        """
+        This inner function only yields examples from the created `dataset`.
+        """
+        for item in dataset:
+            # print("one more")
+            yield item
+
+    return tf.data.Dataset.from_generator(
+        _get_iterator,
+        output_types={"text": tf.string, "timestamp": tf.string, "url": tf.string},
     )
 
-# ---------------- Finetune tasks -----------------
-for lang, size in itertools.product(FINETUNE_LANGUAGES, FINETUNE_SIZES):
+
+# ---------------- Language tasks -----------------
+for lang in ALL_LANGUAGES:
     seqio.TaskRegistry.add(
-        f"langagnostic.finetune.{lang}.small.{int(size)}",
-        source=seqio.TFExampleDataSource(
-            split_to_filepattern={
-                "train": f"gs://lang_agnostic/dataset/data/finetune/{lang}/mc4_{lang}_train_{size}.tfrecord",
-                "validation": f"gs://lang_agnostic/dataset/pretrain/mc4_{lang}_validation_315789473.tfrecord",
-            },
-            feature_description={
-                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
-            },
+        f"langagnostic.{lang}",
+        source=seqio.FunctionDataSource(
+            dataset_fn=functools.partial(get_dataset, language=lang),
+            splits=["train", "validation"],
         ),
         preprocessors=DEFAULT_PRE_PROCESSORS,
         output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
