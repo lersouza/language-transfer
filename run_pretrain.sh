@@ -21,6 +21,4 @@ python3 ${T5X_DIR}/t5x/train.py \
   --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.${DATA_SIZE}"\" \
   --gin.TRAIN_STEPS=11445 \
   --gin.EVAL_PERIOD=1000 \
-  --gin.WARMUP_STEPS=3000 \
-  --gin.NUMBER_OF_TOKENS=$DATA_SIZE
-
+  --gin.WARMUP_STEPS=3000
