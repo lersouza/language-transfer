@@ -14,13 +14,12 @@ include "lang_transfer/configs/models/70M.gin"
 
 # REQUIRED variables
 EVAL_PERIOD = %gin.REQUIRED
-NUMBER_OF_TOKENS = %gin.REQUIRED
 
 # PREDEFINED variables
 BATCH_SIZE = 512
 MICRO_BATCHES = 4
 TASK_FEATURE_LENGTHS={"targets":1024}
-EVAL_STEPS = 600 # to run the validation over aprox 315789473 tokens 
+EVAL_STEPS = 550 # to run the validation over aprox 288M tokens 
 PRETRAINED_MODEL_PATH = []  # From scratch
 
 DROPOUT_RATE = 0.0
@@ -45,5 +44,3 @@ optax.warmup_cosine_decay_schedule:
 utils.SaveCheckpointConfig:
   period = %EVAL_PERIOD
 
-# TASKS Config
-preprocessing.take_n_tokens.n = %NUMBER_OF_TOKENS

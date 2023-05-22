@@ -18,8 +18,8 @@ python3 ${T5X_DIR}/t5x/train.py \
   --gin_search_paths=${PROJECT_DIR} \
   --gin_file="lang_transfer/configs/runs/train_scratch.small.gin" \
   --gin.MODEL_DIR=\"${MODEL_DIR}\" \
-  --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}"\" \
-  --gin.TRAIN_STEPS=11500 \
+  --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.6B"\" \
+  --gin.TRAIN_STEPS=11445 \
   --gin.EVAL_PERIOD=1000 \
   --gin.WARMUP_STEPS=3000 \
   --gin.NUMBER_OF_TOKENS=$DATA_SIZE
