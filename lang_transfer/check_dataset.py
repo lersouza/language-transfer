@@ -8,7 +8,7 @@ import preprocessing
 import seqio
 import tensorflow as tf
 
-from clu.data.dataset_iterator import TfDatasetIterator
+
 
 def print_stats(
     stats: Dict[str, Any], additional_info: Dict[str, Any] = None
@@ -80,10 +80,8 @@ def check(file: Path, number_of_tokens: int, batch_size: int, seq_length: int):
     }
 
     tokens_found = 0
-    iterator = TfDatasetIterator(dataset, checkpoint=False)
 
-    for i in range(1, 100000):
-        item = next(iterator)
+    for i, item in enumerate(dataset):
         bsize, slen = item["decoder_target_tokens"].shape
 
         stats["tokens"] += (bsize * slen)
