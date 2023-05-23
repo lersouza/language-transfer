@@ -23,6 +23,11 @@ EVAL_STEPS = 550 # to run the validation over aprox 288M tokens
 PRETRAINED_MODEL_PATH = []  # From scratch
 
 DROPOUT_RATE = 0.0
+RANDOM_SEED = 42
+
+# DATASET overrides
+train/utils.DatasetConfig:
+  seed = %RANDOM_SEED
 
 # TRAIN script overrides
 train_script.train.eval_steps = %EVAL_STEPS
@@ -43,4 +48,5 @@ optax.warmup_cosine_decay_schedule:
 # CHECKPOINT Config
 utils.SaveCheckpointConfig:
   period = %EVAL_PERIOD
+  save_dataset = True
 
