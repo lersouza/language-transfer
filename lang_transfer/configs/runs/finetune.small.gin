@@ -35,9 +35,9 @@ train_eval/utils.DatasetConfig:
 # TRAIN script overrides
 train_script.train.eval_steps = %EVAL_STEPS
 train_script.train.eval_period = %EVAL_PERIOD
-train_script.train.get_dataset_fn = @utils.get_dataset
+train_script.train.get_dataset_fn = @tasks.get_train_dataset_wrapper()
 
-utils.get_dataset:
+tasks.get_train_dataset_wrapper:
   num_epochs = %TRAIN_DATASET_EPOCHS
 
 # MICRO-BATCHES & LR SCHEDULER configuration

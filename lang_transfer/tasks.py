@@ -1,11 +1,15 @@
 import functools
 import itertools
+from typing import Callable, Optional
 
+import gin
 import seqio
 import tensorflow as tf
 
 from datasets import load_dataset
 from lang_transfer import preprocessing
+
+from t5x.utils import DatasetConfig, get_dataset
 
 
 DEFAULT_BYTE_OUTPUT_FEATURES = {
@@ -74,3 +78,22 @@ for lang in ALL_LANGUAGES:
         metric_fns=[],
     )
 
+
+# Define a custom dataset function
+@gin.configurable(allowlist=["num_epochs", "continue_from_last_checkpoint"])
+def get_train_dataset_wrapper(
+    cfg: DatasetConfig,
+    shard_id: int,
+    num_shards: int,
+    feature_converter_cls: Callable[..., seqio.FeatureConverter],
+    num_epochs: Optional[int] = None,
+    continue_from_last_checkpoint: bool = False,
+) -> tf.data.Dataset:
+    return get_dataset(
+        cfg=cfg,
+        shard_id=shard_id,
+        num_shards=num_shards,
+        feature_converter_cls=feature_converter_cls,
+        num_epochs=num_epochs,
+        continue_from_last_checkpoint=continue_from_last_checkpoint,
+    )
