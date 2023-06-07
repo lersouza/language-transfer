@@ -35,14 +35,14 @@ DEFAULT_PRE_PROCESSORS = [
 
 PASSTHROUGH_BYTE_OUTPUT_FEATURES = {
     "inputs": seqio.Feature(
-        vocabulary=seqio.PassThroughVocabulary(259),
+        vocabulary=seqio.ByteVocabulary(),
         add_eos=False,
         required=False,
         dtype=tf.string,
         rank=0,
     ),
     "targets": seqio.Feature(
-        vocabulary=seqio.PassThroughVocabulary(259),
+        vocabulary=seqio.ByteVocabulary(),
         add_eos=False,
         dtype=tf.int64,
         rank=1,
