@@ -38,13 +38,13 @@ PASSTHROUGH_BYTE_OUTPUT_FEATURES = {
         vocabulary=seqio.ByteVocabulary(),
         add_eos=False,
         required=False,
-        dtype=tf.string,
+        dtype=tf.int32,
         rank=0,
     ),
     "targets": seqio.Feature(
         vocabulary=seqio.ByteVocabulary(),
         add_eos=False,
-        dtype=tf.int64,
+        dtype=tf.int32,
         rank=1,
     ),
 }
