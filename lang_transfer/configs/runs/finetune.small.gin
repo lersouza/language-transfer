@@ -20,7 +20,6 @@ TASK_FEATURE_LENGTHS={"targets":1024}
 EVAL_STEPS = 550 # to run the validation over aprox 315789473 tokens 
 PRETRAINED_MODEL_PATH = []  # From scratch
 VAL_MIXTURE_OR_TASK_NAME = %MIXTURE_OR_TASK_NAME
-TRAIN_DATASET_EPOCHS = None
 
 DROPOUT_RATE = 0.0
 RANDOM_SEED = 42
@@ -35,10 +34,6 @@ train_eval/utils.DatasetConfig:
 # TRAIN script overrides
 train_script.train.eval_steps = %EVAL_STEPS
 train_script.train.eval_period = %EVAL_PERIOD
-train_script.train.get_dataset_fn = @tasks.get_train_dataset_wrapper()
-
-tasks.get_train_dataset_wrapper:
-  num_epochs = %TRAIN_DATASET_EPOCHS
 
 # MICRO-BATCHES & LR SCHEDULER configuration
 trainer.Trainer:

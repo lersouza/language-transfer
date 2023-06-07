@@ -27,7 +27,7 @@ FINETUNE_SIZES=("6M" "60M" "600M" "6B")
 FINETUNE_EPOCH_STEPS=(12 115 1145 11445)  # number of steps to form an epoch
 EPOCHS=(10 10 10 3)  # number of steps to form an epoch
 WARMUP_STEPS=(0 30 300 3000)
-MODEL_BASE_DIR="gs://lang_agnostic/models"
+MODEL_BASE_DIR="gs://lang_agnostic/models/finetune"
 PRETRAINED_MODEL_CHECKPOINT="gs://lang_agnostic/models/pretrained_${PRETRAINED_LANGUAGE}_${MODEL_SIZE}_6B/checkpoint_11445/"
 
 RUNS=${#FINETUNE_SIZES[@]}
@@ -53,8 +53,7 @@ for (( i=0; i<$RUNS; i++ )); do
         --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
         --gin.TRAIN_STEPS=${TRAIN_STEPS} \
         --gin.EVAL_PERIOD=${EVAL_PERIOD} \
-        --gin.WARMUP_STEPS=${WARMUP} \
-        --gin.TRAIN_DATASET_EPOCHS=${EPOCHS_TO_TRAIN}
+        --gin.WARMUP_STEPS=${WARMUP}
 
     if [ -n "$PRETRAINED_LANGUAGE" ]; then
 
@@ -69,7 +68,6 @@ for (( i=0; i<$RUNS; i++ )); do
           --gin.TRAIN_STEPS=${TRAIN_STEPS} \
           --gin.EVAL_PERIOD=${EVAL_PERIOD} \
           --gin.WARMUP_STEPS=0 \
-          --gin.PRETRAINED_MODEL_PATH=\"${PRETRAINED_MODEL_CHECKPOINT}\" \
-          --gin.TRAIN_DATASET_EPOCHS=${EPOCHS_TO_TRAIN}
+          --gin.PRETRAINED_MODEL_PATH=\"${PRETRAINED_MODEL_CHECKPOINT}\"
     fi
 done
