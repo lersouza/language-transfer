@@ -12,6 +12,13 @@ from lang_transfer import preprocessing
 from t5x.utils import DatasetConfig, get_dataset
 
 
+@seqio.utils.map_over_dataset
+def cast(x, features=["targets"], dtype=tf.int32):
+    for feat in features:
+        x[feat] = tf.cast(x[feat], dtype)
+    return x
+
+
 DEFAULT_BYTE_OUTPUT_FEATURES = {
     "inputs": seqio.Feature(vocabulary=seqio.ByteVocabulary(), required=False),
     "targets": seqio.Feature(vocabulary=seqio.ByteVocabulary()),
@@ -27,12 +34,26 @@ DEFAULT_PRE_PROCESSORS = [
 ]
 
 PASSTHROUGH_BYTE_OUTPUT_FEATURES = {
-    "inputs": seqio.Feature(vocabulary=seqio.PassThroughVocabulary(size=259), required=False),
-    "targets": seqio.Feature(vocabulary=seqio.PassThroughVocabulary(size=259)),
+    "inputs": seqio.Feature(
+        vocabulary=seqio.PassThroughVocabulary(259),
+        add_eos=False,
+        required=False,
+        dtype=tf.string,
+        rank=0,
+    ),
+    "targets": seqio.Feature(
+        vocabulary=seqio.PassThroughVocabulary(259),
+        add_eos=False,
+        dtype=tf.int64,
+        rank=1,
+    ),
 }
 
-
 PASSTHROUGH_PREPROCESSORS = [
+    functools.partial(
+        seqio.preprocessors.rekey, key_map={"inputs": None, "targets": "targets"}
+    ),
+    functools.partial(cast, features=["targets"]),
 ]
 
 ALL_LANGUAGES = (
@@ -56,16 +77,14 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         f"langagnostic.{lang}.{size_name}",
         source=seqio.TFExampleDataSource(
             {
-                "train": (
-                    f"gs://lang_agnostic/dataset/{lang}.{size_name}.examples"
-                ),
+                "train": f"gs://lang_agnostic/dataset/{lang}.{size_name}.examples",
             },
             feature_description={
-                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+                "targets": tf.io.FixedLenFeature([], tf.int64, default_value=None),
             },
         ),
         preprocessors=PASSTHROUGH_PREPROCESSORS,
-        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        output_features=PASSTHROUGH_BYTE_OUTPUT_FEATURES,
         metric_fns=[],
     )
 
@@ -82,6 +101,6 @@ for lang in ALL_LANGUAGES:
             },
         ),
         preprocessors=DEFAULT_PRE_PROCESSORS,
-        output_features=PASSTHROUGH_BYTE_OUTPUT_FEATURES,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
         metric_fns=[],
     )
