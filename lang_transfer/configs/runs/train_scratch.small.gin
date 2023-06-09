@@ -52,5 +52,4 @@ optax.warmup_cosine_decay_schedule:
 # CHECKPOINT Config
 utils.SaveCheckpointConfig:
   period = %EVAL_PERIOD
-  save_dataset = True
 
