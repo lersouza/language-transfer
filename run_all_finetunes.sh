@@ -28,7 +28,7 @@ FINETUNE_EPOCH_STEPS=(12 115 1145 11445)  # number of steps to form an epoch
 EPOCHS=(10 10 10 3)  # number of steps to form an epoch
 WARMUP_STEPS=(0 30 300 3000)
 MODEL_BASE_DIR="gs://lang_agnostic/models/finetune"
-PRETRAINED_MODEL_CHECKPOINT="gs://lang_agnostic/models/pretrained_${PRETRAINED_LANGUAGE}_${MODEL_SIZE}_6B/checkpoint_11445/"
+PRETRAINED_MODEL_CHECKPOINT="gs://lang_agnostic/models/pretrained/pretrained_${PRETRAINED_LANGUAGE}_${MODEL_SIZE}_6B/checkpoint_11445/"
 
 RUNS=${#FINETUNE_SIZES[@]}
 
