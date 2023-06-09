@@ -1,22 +1,10 @@
 import functools
 import itertools
-from typing import Callable, Optional
 
-import gin
 import seqio
 import tensorflow as tf
 
-from datasets import load_dataset
 from lang_transfer import preprocessing
-
-from t5x.utils import DatasetConfig, get_dataset
-
-
-@seqio.utils.map_over_dataset
-def cast(x, features=["targets"], dtype=tf.int32):
-    for feat in features:
-        x[feat] = tf.cast(x[feat], dtype)
-    return x
 
 
 DEFAULT_BYTE_OUTPUT_FEATURES = {
@@ -33,32 +21,13 @@ DEFAULT_PRE_PROCESSORS = [
     seqio.preprocessors.append_eos_after_trim,
 ]
 
-PASSTHROUGH_BYTE_OUTPUT_FEATURES = {
-    "inputs": seqio.Feature(
-        vocabulary=seqio.ByteVocabulary(),
-        add_eos=False,
-        required=False,
-        dtype=tf.int32,
-        rank=0,
-    ),
-    "targets": seqio.Feature(
-        vocabulary=seqio.ByteVocabulary(),
-        add_eos=False,
-        dtype=tf.int32,
-        rank=1,
-    ),
-}
-
-PASSTHROUGH_PREPROCESSORS = [
-    functools.partial(
-        seqio.preprocessors.rekey, key_map={"inputs": None, "targets": "targets"}
-    ),
-    functools.partial(cast, features=["targets"]),
-]
 
 ALL_LANGUAGES = (
+    "ar",
     "en",
     "es",
+    "pt",
+    "zh",
 )
 
 DATASET_SIZES = [
@@ -77,14 +46,14 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         f"langagnostic.{lang}.{size_name}",
         source=seqio.TFExampleDataSource(
             {
-                "train": f"gs://lang_agnostic/dataset/{lang}.{size_name}.examples",
+                "train": f"gs://lang_agnostic/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
             },
             feature_description={
-                "targets": tf.io.FixedLenFeature([], tf.int64, default_value=None),
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
             },
         ),
-        preprocessors=PASSTHROUGH_PREPROCESSORS,
-        output_features=PASSTHROUGH_BYTE_OUTPUT_FEATURES,
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
         metric_fns=[],
     )
 
@@ -94,7 +63,7 @@ for lang in ALL_LANGUAGES:
         f"langagnostic.{lang}.validation",
         source=seqio.TFExampleDataSource(
             {
-                "validation": f"gs://lang_agnostic/dataset/mc4_{lang}_validation_309278350.tfrecord",
+                "validation": f"gs://lang_agnostic/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
             },
             feature_description={
                 "text": tf.io.FixedLenFeature([], tf.string, default_value=""),

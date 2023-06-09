@@ -14,6 +14,14 @@ from tqdm.auto import tqdm
 from datasets import load_dataset
 
 
+DATASET_SIZES = {
+    "6M": 6815744,
+    "60M": 60817408,
+    "600M": 600834048,
+    "6B": 6001000448,
+}
+
+
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""
     if isinstance(value, type(tf.constant(0))):
@@ -54,6 +62,8 @@ def truncate(
     exact_size: bool,
     validation_percentage: float,
     output_directory: Path,
+    size_name: str = None,
+    overwrite: bool = False,
 ):
     """
     Truncate the specified mC4's `language` subset to a maximum of `max_tokens`
@@ -70,8 +80,13 @@ def truncate(
         )
     )
     target_file_name = (
-        output_directory / f"mc4_{language}_{split}_{tokens_to_process}.tfrecord"
+        output_directory
+        / f"mc4_{language}_{split}_{size_name or tokens_to_process}.tfrecord"
     )
+
+    if os.path.exists(target_file_name) and not overwrite:
+        print(f"File {target_file_name} already exists. Skipping...")
+        return
 
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
@@ -105,7 +120,10 @@ def truncate(
             stats["original_text_length"] += len(raw_text)
             stats["original_tokens_length"] += len(in_bytes)
 
-            if len(in_bytes) + stats["tokens"] > tokens_to_process and exact_size is True:
+            if (
+                len(in_bytes) + stats["tokens"] > tokens_to_process
+                and exact_size is True
+            ):
                 remaining = int(tokens_to_process - stats["tokens"])
 
                 # Truncate at the UTF-8 Byte level here
@@ -151,42 +169,57 @@ def truncate(
     )
 
 
-def generate_datasets(language: str, size: int, validation_pct: float, exact_size: bool, output_directory: str):
+def generate_datasets(
+    language: str, validation_pct: float, exact_size: bool, output_directory: str, overwrite: bool
+):
     """
     Generate datasets with different `sizes` for the selected `language`.
     All resulting files are saved to `output_directory`.
     """
     os.makedirs(output_directory, exist_ok=True)
 
-    truncate(
-        language=language,
-        split="train",
-        max_train_tokens=size,
-        exact_size=exact_size,
-        validation_percentage=0.03,
-        output_directory=output_directory,
-    )
+    for size_name, size in DATASET_SIZES.items():
+        truncate(
+            language=language,
+            split="train",
+            max_train_tokens=size,
+            exact_size=exact_size,
+            validation_percentage=0.03,
+            output_directory=output_directory,
+            size_name=size_name,
+            overwrite=overwrite,
+        )
 
     if validation_pct is not None:
+        base_size = DATASET_SIZES["6B"] * validation_pct
+        validation_size_name = "6B-slice"
+
         truncate(
             language=language,
             split="validation",
-            max_train_tokens=size,
+            max_train_tokens=base_size,
             exact_size=exact_size,
             validation_percentage=validation_pct,
             output_directory=output_directory,
+            size_name=validation_size_name,
+            overwrite=overwrite,
         )
-
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("language", type=str)
-    parser.add_argument("--size", type=int, default=10_000_000_000)
     parser.add_argument("--validation_pct", type=float, default=None)
     parser.add_argument("--exact_size", action="store_true")
     parser.add_argument("--output_dir", type=Path, default=Path("./"))
+    parser.add_argument("--overwrite", action="store_true")
 
     args = parser.parse_args()
 
-    generate_datasets(args.language, args.size, args.validation_pct, args.exact_size, args.output_dir)
+    generate_datasets(
+        args.language,
+        args.validation_pct,
+        args.exact_size,
+        args.output_dir,
+        args.overwrite,
+    )
