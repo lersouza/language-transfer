@@ -17,7 +17,7 @@ WARMUP_STEPS = 0
 BATCH_SIZE = 512
 MICRO_BATCHES = 4
 TASK_FEATURE_LENGTHS={"targets":1024}
-EVAL_STEPS = 550 # to run the validation over aprox 315789473 tokens 
+EVAL_STEPS = 57 # to run the validation over aprox 60010004 (1% of 6B size) tokens 
 PRETRAINED_MODEL_PATH = []  # From scratch
 VAL_MIXTURE_OR_TASK_NAME = %MIXTURE_OR_TASK_NAME
 
