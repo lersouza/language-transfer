@@ -3,6 +3,7 @@
 LANGUAGE=${1}
 MODEL_SIZE=${2}
 PRETRAINED_LANGUAGE=${3}
+SPECIFIC_SIZE=${4}
 
 if [ -z "$LANGUAGE" ] || [ -z "$MODEL_SIZE" ]; then
   echo "Please, provide a language for finetune and model size. Current size supported is small"
@@ -42,6 +43,11 @@ for (( i=0; i<$RUNS; i++ )); do
 
     TRAIN_STEPS=$((EPOCH_STEPS*EPOCHS_TO_TRAIN))
     EVAL_PERIOD=$((EPOCH_STEPS))
+
+    if [ ! -z "$SPECIFIC_SIZE" ] && [ "$SPECIFIC_SIZE" != "$DATA_SIZE" ]; then
+      echo "Skipping size $DATA_SIZE"
+      continue
+    fi
     
     echo "Running experiment with size ${DATA_SIZE}, # of train steps ${TRAIN_STEPS}, #warmup ${WARMUP}" ;
 
