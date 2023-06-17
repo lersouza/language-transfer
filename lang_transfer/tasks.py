@@ -28,6 +28,9 @@ ALL_LANGUAGES = (
     "es",
     "pt",
     "zh",
+    "fi",
+    "de",
+    "ko",
 )
 
 DATASET_SIZES = [
