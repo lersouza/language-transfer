@@ -24,7 +24,7 @@ T5X_DIR="./t5x"  # directory where the t5x is cloned.
 export PYTHONPATH="./"
 
 # Experiments definition
-FINETUNE_SIZES=("6M" "60M" "600M" "6B")
+FINETUNE_SIZES=("6M" "19M" "60M" "189M" "600M" "6B")
 FINETUNE_EPOCH_STEPS=(12 115 1145 11445)  # number of steps to form an epoch
 EPOCHS=(10 10 10 3)  # number of steps to form an epoch
 WARMUP_STEPS=(0 30 300 3000)
