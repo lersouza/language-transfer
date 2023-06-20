@@ -13,7 +13,8 @@ from seqio.vocabularies import ByteVocabulary
 from tqdm.auto import tqdm
 from datasets import load_dataset
 
-
+# sizes found for points between 6e6 and 6e9 plus 6B
+#   points = np.logspace(start, end, num=7, base=10)
 DATASET_SIZES = {
     "6M": 6815744,
     "19M": 19398656,
