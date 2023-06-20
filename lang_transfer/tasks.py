@@ -35,7 +35,9 @@ ALL_LANGUAGES = (
 
 DATASET_SIZES = [
     "6M",
+    "19M",
     "60M",
+    "189M",
     "600M",
     "6B",
 ]

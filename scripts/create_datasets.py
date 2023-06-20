@@ -16,7 +16,9 @@ from datasets import load_dataset
 
 DATASET_SIZES = {
     "6M": 6815744,
+    "19M": 19398656,
     "60M": 60817408,
+    "189M": 189267968,
     "600M": 600834048,
     "6B": 6001000448,
 }
@@ -59,7 +61,7 @@ def truncate(
     language: str,
     split: str,
     max_train_tokens: int,
-    exact_size: bool,
+    keep_full_doc: bool,
     validation_percentage: float,
     output_directory: Path,
     size_name: str = None,
@@ -122,7 +124,7 @@ def truncate(
 
             if (
                 len(in_bytes) + stats["tokens"] > tokens_to_process
-                and exact_size is True
+                and keep_full_doc is False
             ):
                 remaining = int(tokens_to_process - stats["tokens"])
 
@@ -170,7 +172,7 @@ def truncate(
 
 
 def generate_datasets(
-    language: str, validation_pct: float, exact_size: bool, output_directory: str, overwrite: bool
+    language: str, validation_pct: float, keep_full_doc: bool, output_directory: str, overwrite: bool
 ):
     """
     Generate datasets with different `sizes` for the selected `language`.
@@ -183,8 +185,8 @@ def generate_datasets(
             language=language,
             split="train",
             max_train_tokens=size,
-            exact_size=exact_size,
-            validation_percentage=0.03,
+            keep_full_doc=keep_full_doc,
+            validation_percentage=validation_pct,
             output_directory=output_directory,
             size_name=size_name,
             overwrite=overwrite,
@@ -198,7 +200,7 @@ def generate_datasets(
             language=language,
             split="validation",
             max_train_tokens=base_size,
-            exact_size=exact_size,
+            keep_full_doc=keep_full_doc,
             validation_percentage=validation_pct,
             output_directory=output_directory,
             size_name=validation_size_name,
@@ -210,7 +212,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("language", type=str)
     parser.add_argument("--validation_pct", type=float, default=None)
-    parser.add_argument("--exact_size", action="store_true")
+    parser.add_argument("--keep_full_doc", action="store_true", default=False)
     parser.add_argument("--output_dir", type=Path, default=Path("./"))
     parser.add_argument("--overwrite", action="store_true")
 
@@ -219,7 +221,7 @@ if __name__ == "__main__":
     generate_datasets(
         args.language,
         args.validation_pct,
-        args.exact_size,
+        args.keep_full_doc,
         args.output_dir,
         args.overwrite,
     )
