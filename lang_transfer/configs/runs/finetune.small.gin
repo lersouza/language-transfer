@@ -26,7 +26,8 @@ DROPOUT_RATE = 0.0
 RANDOM_SEED = 42
 
 # TASKS configuration
-tasks.BUCKET_NAME = %BUCKET_NAME
+tasks.register_training_tasks.bucket_name = %BUCKET_NAME
+tasks.register_validation_tasks.bucket_name = %BUCKET_NAME
 
 # DATASET overrides
 train/utils.DatasetConfig:
