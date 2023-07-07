@@ -23,5 +23,4 @@ python3 ${T5X_DIR}/t5x/train.py \
   --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
   --gin.TRAIN_STEPS=11445 \
   --gin.EVAL_PERIOD=1000 \
-  --gin.WARMUP_STEPS=3000 \
-  --gin.BUCKET_NAME=\""${BUCKET_NAME}"\"
+  --gin.WARMUP_STEPS=3000 

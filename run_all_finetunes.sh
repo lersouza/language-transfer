@@ -60,8 +60,7 @@ for (( i=0; i<$RUNS; i++ )); do
         --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
         --gin.TRAIN_STEPS=${TRAIN_STEPS} \
         --gin.EVAL_PERIOD=${EVAL_PERIOD} \
-        --gin.WARMUP_STEPS=${WARMUP} \
-        --gin.BUCKET_NAME=\""${BUCKET_NAME}"\"
+        --gin.WARMUP_STEPS=${WARMUP}
 
     if [ -n "$PRETRAINED_LANGUAGE" ]; then
 
@@ -76,7 +75,6 @@ for (( i=0; i<$RUNS; i++ )); do
           --gin.TRAIN_STEPS=${TRAIN_STEPS} \
           --gin.EVAL_PERIOD=${EVAL_PERIOD} \
           --gin.WARMUP_STEPS=0 \
-          --gin.PRETRAINED_MODEL_PATH=\"${PRETRAINED_MODEL_CHECKPOINT}\" \
-          --gin.BUCKET_NAME=\""${BUCKET_NAME}"\"
+          --gin.PRETRAINED_MODEL_PATH=\"${PRETRAINED_MODEL_CHECKPOINT}\"
     fi
 done
