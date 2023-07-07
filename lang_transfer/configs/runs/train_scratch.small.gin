@@ -29,6 +29,7 @@ RANDOM_SEED = 42
 
 # TASKS configuration
 tasks.register_training_tasks.bucket_name = %BUCKET_NAME
+tasks.register_validation_tasks.bucket_name = %BUCKET_NAME
 
 # DATASET overrides
 train/utils.DatasetConfig:
