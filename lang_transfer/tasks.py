@@ -1,7 +1,7 @@
 import functools
 import itertools
+import os
 
-import gin
 import seqio
 import tensorflow as tf
 
@@ -43,48 +43,43 @@ DATASET_SIZES = [
     "6B",
 ]
 
+BUCKET_NAME=os.environ.get("BUCKET_NAME", "lang_agnostic_europe")
+
 # ---------------- Language tasks -----------------
-@gin.configurable
-def register_training_tasks(languages, sizes, bucket_name="<<bucket>>"):
-    print("Using Bucket", bucket_name, "as source of data.")
 
-    for lang, size_name in itertools.product(languages, sizes):
-        seqio.TaskRegistry.add(
-            f"langagnostic.{lang}.{size_name}",
-            source=seqio.TFExampleDataSource(
-                {
-                    "train": f"gs://{bucket_name}/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
-                },
-                feature_description={
-                    "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
-                },
-            ),
-            preprocessors=DEFAULT_PRE_PROCESSORS,
-            output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
-            metric_fns=[],
-        )
-
-@gin.configurable
-def register_validation_tasks(languages, bucket_name="<<bucket>>"):
-    for lang in languages:
-        seqio.TaskRegistry.add(
-            f"langagnostic.{lang}.validation",
-            source=seqio.TFExampleDataSource(
-                {
-                    "validation": f"gs://{bucket_name}/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
-                },
-                feature_description={
-                    "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
-                },
-            ),
-            preprocessors=DEFAULT_PRE_PROCESSORS,
-            output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
-            metric_fns=[],
-        )
+# ADD TRAIN datasets for all languages and sizes
+print("Using Bucket", BUCKET_NAME, "as source of data.")
 
 
-# ADD TRAINING datasets for all languages AND dataset sizes
-register_training_tasks(ALL_LANGUAGES, DATASET_SIZES)
+for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
+    seqio.TaskRegistry.add(
+        f"langagnostic.{lang}.{size_name}",
+        source=seqio.TFExampleDataSource(
+            {
+                "train": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
+            },
+            feature_description={
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+            },
+        ),
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
 
 # ADD VALIDATION datasets for all languages
-register_validation_tasks(ALL_LANGUAGES)
+for lang in ALL_LANGUAGES:
+    seqio.TaskRegistry.add(
+        f"langagnostic.{lang}.validation",
+        source=seqio.TFExampleDataSource(
+            {
+                "validation": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
+            },
+            feature_description={
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+            },
+        ),
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
