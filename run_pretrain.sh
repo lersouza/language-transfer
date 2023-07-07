@@ -2,9 +2,10 @@ LANGUAGE=${1}
 
 PROJECT_DIR="./lang_transfer/"
 T5X_DIR="./t5x"  # directory where the t5x is cloned.
+BUCKET_NAME=${BUCKET_NAME:"lang_agnostic_europe"}
 
 DATA_SIZE="6B"
-MODEL_DIR="gs://lang_agnostic/models/pretrained/pretrained_${LANGUAGE}_small_${DATA_SIZE}/"
+MODEL_DIR="gs://${BUCKET_NAME}/models/pretrained/pretrained_${LANGUAGE}_small_${DATA_SIZE}/"
 
 export PYTHONPATH="./"
 
@@ -22,4 +23,5 @@ python3 ${T5X_DIR}/t5x/train.py \
   --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
   --gin.TRAIN_STEPS=11445 \
   --gin.EVAL_PERIOD=1000 \
-  --gin.WARMUP_STEPS=3000
+  --gin.WARMUP_STEPS=3000 \
+  --gin.BUCKET_NAME=\""${BUCKET_NAME}"\"

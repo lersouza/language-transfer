@@ -42,16 +42,20 @@ DATASET_SIZES = [
     "6B",
 ]
 
+BUCKET_NAME="<<bucket_name>>"
+
 # ---------------- Language tasks -----------------
 
 # ADD TRAIN datasets for all languages and sizes
+print("Using Bucket", BUCKET_NAME, "as source of data.")
+
 
 for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
     seqio.TaskRegistry.add(
         f"langagnostic.{lang}.{size_name}",
         source=seqio.TFExampleDataSource(
             {
-                "train": f"gs://lang_agnostic/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
+                "train": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
             },
             feature_description={
                 "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
@@ -68,7 +72,7 @@ for lang in ALL_LANGUAGES:
         f"langagnostic.{lang}.validation",
         source=seqio.TFExampleDataSource(
             {
-                "validation": f"gs://lang_agnostic/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
+                "validation": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
             },
             feature_description={
                 "text": tf.io.FixedLenFeature([], tf.string, default_value=""),

@@ -14,6 +14,7 @@ include "lang_transfer/configs/models/70M.gin"
 
 # REQUIRED variables
 EVAL_PERIOD = %gin.REQUIRED
+BUCKET_NAME = %gin.REQUIRED
 
 # PREDEFINED variables
 BATCH_SIZE = 512
@@ -25,6 +26,9 @@ VAL_MIXTURE_OR_TASK_NAME = %MIXTURE_OR_TASK_NAME
 
 DROPOUT_RATE = 0.0
 RANDOM_SEED = 42
+
+# TASKS configuration
+tasks.BUCKET_NAME = %BUCKET_NAME
 
 # DATASET overrides
 train/utils.DatasetConfig:
