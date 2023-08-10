@@ -32,6 +32,8 @@ utils.DatasetConfig:
   shuffle = False
   seed = %RANDOM_SEED
 
+partitioning.PjitPartitioner.num_partitions = 2
+
 utils.RestoreCheckpointConfig:
   path = %CHECKPOINT_PATH
   mode = 'specific'
