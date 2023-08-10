@@ -21,9 +21,6 @@ DROPOUT_RATE = %gin.REQUIRED
 # Vocabulary (shared by encoder and decoder)
 VOCABULARY = @seqio.ByteVocabulary()
 
-TRAIN_STEPS = %gin.REQUIRED
-WARMUP_STEPS = %gin.REQUIRED
-
 # ------------------- Optimizer ------------------------------------------------
 OPTIMIZER = @optimizers.chain()
 

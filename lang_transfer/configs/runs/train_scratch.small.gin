@@ -14,6 +14,8 @@ include "lang_transfer/configs/models/70M.gin"
 
 # REQUIRED variables
 EVAL_PERIOD = %gin.REQUIRED
+TRAIN_STEPS = %gin.REQUIRED
+WARMUP_STEPS = %gin.REQUIRED
 
 # PREDEFINED variables
 BATCH_SIZE = 512
