@@ -21,6 +21,7 @@ RANDOM_SEED = 42
 eval_script.evaluate:
   model = %MODEL  # imported from separate gin file
   dataset_cfg = @utils.DatasetConfig()
+  partitioner = @partitioning.PjitPartitioner()
   restore_checkpoint_cfg = @utils.RestoreCheckpointConfig()
   output_dir = %EVAL_OUTPUT_DIR
 
@@ -31,8 +32,6 @@ utils.DatasetConfig:
   batch_size = %BATCH_SIZE
   shuffle = False
   seed = %RANDOM_SEED
-
-partitioning.PjitPartitioner.num_partitions = 2
 
 utils.RestoreCheckpointConfig:
   path = %CHECKPOINT_PATH
