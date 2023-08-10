@@ -11,9 +11,9 @@ include "lang_transfer/configs/models/70M.gin"
 
 CHECKPOINT_PATH = %gin.REQUIRED  # passed via commandline
 EVAL_OUTPUT_DIR = %gin.REQUIRED  # passed via commandline
-TASK_FEATURE_LENGTHS = %gin.REQUIRED
 MIXTURE_OR_TASK_NAME = %gin.REQUIRED
 
+TASK_FEATURE_LENGTHS={"targets":1024}
 DROPOUT_RATE = 0.0  # unused boilerplate
 BATCH_SIZE = 128
 RANDOM_SEED = 42
