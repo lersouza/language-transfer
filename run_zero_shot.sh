@@ -37,3 +37,11 @@ python3 ${T5X_DIR}/t5x/eval.py \
     --gin.CHECKPOINT_PATH=\"${SCRATCH_MODEL_CHECKPOINT}\" \
     --gin.EVAL_OUTPUT_DIR=\"${MODEL_BASE_DIR}/scratch_${LANGUAGE}_${MODEL_SIZE}_0M\"
 
+if [ -n "$PRETRAINED_LANGUAGE" ]; then
+    python3 ${T5X_DIR}/t5x/eval.py \
+        --gin_search_paths=${PROJECT_DIR} \
+        --gin_file="lang_transfer/configs/runs/eval.${MODEL_SIZE}.gin" \
+        --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
+        --gin.CHECKPOINT_PATH=\"${SCRATCH_MODEL_CHECKPOINT}\" \
+        --gin.EVAL_OUTPUT_DIR=\"${MODEL_BASE_DIR}/${PRETRAINED_LANGUAGE}_${LANGUAGE}_${MODEL_SIZE}_0M\"
+fi
