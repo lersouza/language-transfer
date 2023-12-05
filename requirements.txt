@@ -2,3 +2,6 @@ datasets
 seqio
 t5
 optax
+
+google-cloud
+google-cloud-storage
