@@ -1,7 +1,9 @@
+
 """
 This script truncates mc4's language subset to a specified number of Byte-level tokens.
 """
 import argparse
+import json
 import os
 
 from pathlib import Path
@@ -94,7 +96,6 @@ def truncate(
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
     processed_urls = []
-
     stats = {
         "language": language,
         "split": split,
@@ -173,15 +174,25 @@ def truncate(
 
 
 def generate_datasets(
-    language: str, validation_pct: float, keep_full_doc: bool, output_directory: str, overwrite: bool
+    language: str,
+    validation_pct: float,
+    keep_full_doc: bool,
+    output_directory: str,
+    overwrite: bool,
+    sizes: Dict[str, int] = None,
 ):
     """
-    Generate datasets with different `sizes` for the selected `language`.
-    All resulting files are saved to `output_directory`.
+    Generates train and validation datasets for a given `language`
+    and saves them to `output_directory`.
+
+    The sizes for training can be provided as a dictionary of <size_name, size>
+    or the default `DATASET_SIZES` dictionary will be used.
     """
+    sizes_to_generate = sizes or DATASET_SIZES
+
     os.makedirs(output_directory, exist_ok=True)
 
-    for size_name, size in DATASET_SIZES.items():
+    for size_name, size in sizes_to_generate.items():
         truncate(
             language=language,
             split="train",
@@ -216,8 +227,12 @@ if __name__ == "__main__":
     parser.add_argument("--keep_full_doc", action="store_true", default=False)
     parser.add_argument("--output_dir", type=Path, default=Path("./"))
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--sizes", type=str, help="A dictionary with <size_name, size> in tokens."
+    )
 
     args = parser.parse_args()
+    sizes_to_generate = None if not args.sizes else json.loads(args.sizes)
 
     generate_datasets(
         args.language,
@@ -225,4 +240,5 @@ if __name__ == "__main__":
         args.keep_full_doc,
         args.output_dir,
         args.overwrite,
+        sizes_to_generate,
     )
