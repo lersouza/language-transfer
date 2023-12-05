@@ -4,6 +4,7 @@ LANGUAGE=${1}
 MODEL_SIZE=${2}
 PRETRAINED_LANGUAGE=${3}
 SPECIFIC_SIZE=${4}
+SKIP_SCRATCH=${5}
 
 if [ -z "$LANGUAGE" ] || [ -z "$MODEL_SIZE" ]; then
   echo "Please, provide a language for finetune and model size. Current size supported is small"
@@ -52,15 +53,18 @@ for (( i=0; i<$RUNS; i++ )); do
     
     echo "Running experiment with size ${DATA_SIZE}, # of train steps ${TRAIN_STEPS}, #warmup ${WARMUP}. Bucket is ${BUCKET_NAME}" ;
 
-    python3 ${T5X_DIR}/t5x/train.py \
-        --gin_search_paths=${PROJECT_DIR} \
-        --gin_file="lang_transfer/configs/runs/train_scratch.${MODEL_SIZE}.gin" \
-        --gin.MODEL_DIR=\"${MODEL_BASE_DIR}/scratch_${LANGUAGE}_${MODEL_SIZE}_${DATA_SIZE}\" \
-        --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.${DATA_SIZE}"\" \
-        --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
-        --gin.TRAIN_STEPS=${TRAIN_STEPS} \
-        --gin.EVAL_PERIOD=${EVAL_PERIOD} \
-        --gin.WARMUP_STEPS=${WARMUP}
+    if [ "$SKIP_SCRATCH" -ne "1" ]; then
+
+      python3 ${T5X_DIR}/t5x/train.py \
+          --gin_search_paths=${PROJECT_DIR} \
+          --gin_file="lang_transfer/configs/runs/train_scratch.${MODEL_SIZE}.gin" \
+          --gin.MODEL_DIR=\"${MODEL_BASE_DIR}/scratch_${LANGUAGE}_${MODEL_SIZE}_${DATA_SIZE}\" \
+          --gin.MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.${DATA_SIZE}"\" \
+          --gin.VAL_MIXTURE_OR_TASK_NAME=\""langagnostic.${LANGUAGE}.validation"\" \
+          --gin.TRAIN_STEPS=${TRAIN_STEPS} \
+          --gin.EVAL_PERIOD=${EVAL_PERIOD} \
+          --gin.WARMUP_STEPS=${WARMUP}
+    fi
 
     if [ -n "$PRETRAINED_LANGUAGE" ]; then
 
