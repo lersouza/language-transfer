@@ -3,8 +3,8 @@
 LANGUAGE=${1}
 MODEL_SIZE=${2}
 PRETRAINED_LANGUAGE=${3}
-SPECIFIC_SIZE=${4}
-SKIP_SCRATCH=${5}
+SKIP_SCRATCH=${4}
+SPECIFIC_SIZE=${5}
 
 if [ -z "$LANGUAGE" ] || [ -z "$MODEL_SIZE" ]; then
   echo "Please, provide a language for finetune and model size. Current size supported is small"
