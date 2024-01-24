@@ -3,6 +3,7 @@ import math
 
 import tensorflow as tf
 import gin
+import seqio
 
 from typing import Dict, Optional, Sequence
 from t5.data.preprocessors import (
@@ -98,3 +99,13 @@ def take_n_tokens(
     print("Taking", n, "tokens. Considering", number_of_examples, "to do so.")
 
     return dataset.take(number_of_examples)
+
+
+# custom preprocessor that cast certain features to another dtype
+# necessary to cast the tokenized data from tf.int64 (stored in the tfrecords)
+# to tf.int32, expected output for target features.
+@seqio.map_over_dataset
+def cast(x, features=["targets"], dtype=tf.int32):
+    for feat in features:
+        x[feat] = tf.cast(x[feat], dtype)
+    return x

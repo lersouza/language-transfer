@@ -5,13 +5,22 @@ import os
 import seqio
 import tensorflow as tf
 
-from lang_transfer import preprocessing
+import preprocessing
 
+
+VOCAB_SIZE = seqio.ByteVocabulary().vocab_size
 
 DEFAULT_BYTE_OUTPUT_FEATURES = {
     "inputs": seqio.Feature(vocabulary=seqio.ByteVocabulary(), required=False),
     "targets": seqio.Feature(vocabulary=seqio.ByteVocabulary()),
 }
+
+
+DEFAULT_PASSTHROUGH_OUTPUT_FEATURES = {
+    "inputs": seqio.Feature(vocabulary=seqio.PassThroughVocabulary(VOCAB_SIZE), required=False,  dtype=tf.string, rank=0),
+    "targets": seqio.Feature(vocabulary=seqio.PassThroughVocabulary(VOCAB_SIZE), dtype=tf.int32, rank=1),
+}
+
 
 DEFAULT_PRE_PROCESSORS = [
     functools.partial(
@@ -67,6 +76,28 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         ),
         preprocessors=DEFAULT_PRE_PROCESSORS,
         output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
+
+    seqio.TaskRegistry.add(
+        f"langagnostic.{lang}.{size_name}.preprocessed",
+        source=seqio.TFExampleDataSource(
+            {
+                "train": f"gs://{BUCKET_NAME}/dataset/{lang}/langagnostic.{lang}.{size_name}.preprocessed",
+            },
+            feature_description={
+                "tokenized_text": tf.io.RaggedFeature(tf.int64),
+            },
+        ),
+        preprocessors=[
+            functools.partial(
+                seqio.preprocessors.rekey, key_map={"inputs": None, "targets": "tokenized_text"}
+            ),
+            functools.partial(
+                preprocessing.cast, features=["targets"]
+            ),
+        ],
+        output_features=DEFAULT_PASSTHROUGH_OUTPUT_FEATURES,
         metric_fns=[],
     )
 
