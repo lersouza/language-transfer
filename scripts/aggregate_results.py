@@ -34,6 +34,7 @@ EXPERIMENTS_TO_REMOVE = [
         "bucket": "lang_agnostic",
         "target": "es",
         "data_size": "6B",
+        "initialization": "en",
     },  # Results are inconsitent. Experiment was re-
     {"target": "es", "data_size": "0M"},
     {"target": "pt"},

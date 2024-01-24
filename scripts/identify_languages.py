@@ -1,10 +1,11 @@
 import argparse
 import csv
+import itertools
 import logging
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from pathlib  import Path
+from pathlib import Path
 from typing import Any, Iterable
 
 import fasttext
@@ -64,6 +65,20 @@ __DATASET_SIZES = {
     "600M",
     "6B",
 }
+
+__ALL_LANGUAGES = (
+    "ar",
+    "en",
+    "es",
+    "pt",
+    "zh",
+    "fi",
+    "de",
+    "ko",
+    "id",
+    "ja",
+    "ru",
+)
 
 
 __STRATEGIES = {
@@ -160,9 +175,13 @@ def classify(
     threshold: float,
 ):
     model = fasttext.load_model(model_path)
-    target_file = str(Path(ROOT_FOLDER / f"languages_in_{language}_{size}_{strategy.name}_dataset.csv"))
+    target_file = Path(ROOT_FOLDER / f"results/languages_in_{language}_{size}_{strategy.name}_dataset.csv")
 
-    with open(target_file, "w+", encoding="utf-8") as output:
+    if target_file.exists():
+        LOGGER.warning("Target file %s already exists. Skipping.", target_file)
+        return
+
+    with open(str(target_file), "w+", encoding="utf-8") as output:
         writer = csv.writer(output)
         writer.writerow(["source_language", "size", "target_language", "sentences"])
 
@@ -188,6 +207,29 @@ def classify(
     LOGGER.info("Done! Language: %s, Size: %s, Stats: %s", language, size, overall)
 
 
+def run_for_languages(
+    model_path,
+    languages,
+    sizes,
+    bucket,
+    strategy: ClassificationStrategy,
+    threshold: float,
+):
+    LOGGER.info(
+        "Running for languages: %s and sizes %s. Model is %s. Thresold is %f.",
+        languages,
+        sizes,
+        model_path,
+        threshold,
+    )
+
+    for lang, size in itertools.product(languages, sizes):
+        try:
+            classify(model_path, lang, size, bucket, strategy, threshold)
+        except:
+            LOGGER.warning("Error processing language %s in size %d. Bucket: %s", lang, size, bucket)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -207,6 +249,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     strategy = __STRATEGIES.get(args.strategy)()
 
-    classify(
-        args.model_path, args.language, args.size, args.bucket, strategy, args.threshold
+    languages = __ALL_LANGUAGES if args.language == "all" else [args.language]
+    sizes = __DATASET_SIZES if args.size == "all" else [args.size]
+
+    logging.basicConfig(level=logging.INFO)
+
+    run_for_languages(
+        args.model_path, languages, sizes, args.bucket, strategy, args.threshold
     )
