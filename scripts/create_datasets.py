@@ -5,7 +5,9 @@ This script truncates mc4's language subset to a specified number of Byte-level 
 import argparse
 import json
 import os
+import pickle
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Counter, Dict, List
 
@@ -60,6 +62,31 @@ def print_stats(
     print("=" * 100)
 
 
+def create_checkpoint_file_name(target_file_path: str):
+    return f"{target_file_path}.ckpt"
+
+
+def retrieve_checkpoint(target_file_path: str):
+    checkpoint_path = create_checkpoint_file_name(target_file_path)
+
+    if not os.path.exists(checkpoint_path):
+        return None
+    
+    with open(checkpoint_path, "rb") as ckpt_file:
+        return pickle.load(ckpt_file)
+
+
+def save_checkpoint(checkpoint_object, related_file_path):
+    checkpoint_path = create_checkpoint_file_name(related_file_path)
+
+    with open(checkpoint_path, "wb") as ckpt_file:
+        return pickle.dump(checkpoint_object, ckpt_file)
+
+
+def remove_checkpoint(related_file_path):
+    os.remove(create_checkpoint_file_name(related_file_path))
+
+
 def truncate(
     language: str,
     split: str,
@@ -69,6 +96,7 @@ def truncate(
     output_directory: Path,
     size_name: str = None,
     overwrite: bool = False,
+    checkpoint_every_n_examples: int = 500
 ):
     """
     Truncate the specified mC4's `language` subset to a maximum of `max_tokens`
@@ -89,33 +117,51 @@ def truncate(
         / f"mc4_{language}_{split}_{size_name or tokens_to_process}.tfrecord"
     )
 
-    if os.path.exists(target_file_name) and not overwrite:
+    checkpoint = retrieve_checkpoint(target_file_name)
+
+    if checkpoint is None and os.path.exists(target_file_name) and not overwrite:
         print(f"File {target_file_name} already exists. Skipping...")
         return
 
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
     processed_urls = []
-    stats = {
-        "language": language,
-        "split": split,
-        "examples": 0,
-        "original_text_length": 0,
-        "text_length_after_truncation": 0,
-        "tokens": 0,
-        "original_tokens_length": 0,
-        "max_tokens": tokens_to_process,
-        "max_train_tokens": max_train_tokens,
-        "validation_percentage": validation_percentage,
-        "token2text_rate": None,
-        "dropped_text_length": 0,
-        "dropped_tokens_length": 0,
-    }
+    last_example_index = 0
+    
+    if not checkpoint:
+        stats = {
+            "language": language,
+            "split": split,
+            "examples": 0,
+            "original_text_length": 0,
+            "text_length_after_truncation": 0,
+            "tokens": 0,
+            "original_tokens_length": 0,
+            "max_tokens": tokens_to_process,
+            "max_train_tokens": max_train_tokens,
+            "validation_percentage": validation_percentage,
+            "token2text_rate": None,
+            "dropped_text_length": 0,
+            "dropped_tokens_length": 0,
+        }
+    else:
+        processed_urls = checkpoint["processed_urls"]
+        stats = checkpoint["stats"]
+        last_example_index = checkpoint["last_example_index"]
+
+        print("Restoring checkpoint. We'll start from example", last_example_index, ". Stats was:")
+        print_stats(stats)
+
+        os.rename(target_file_name, f"{target_file_name}.{datetime.now().timestamp()}")
 
     with tf.io.TFRecordWriter(str(target_file_name)) as file_writer, tqdm(
         total=tokens_to_process
     ) as pbar:
-        for example in original_dataset:
+        for idx, example in enumerate(original_dataset):
+            if idx < last_example_index:
+                pbar.update(stats["tokens"] // stats["examples"])
+                continue
+
             raw_text = example["text"]
             in_bytes = vocabulary.encode(raw_text)
 
@@ -155,6 +201,15 @@ def truncate(
 
             pbar.update(len(in_bytes))
 
+            if idx % checkpoint_every_n_examples == 0:
+                last_example_index = idx
+
+                save_checkpoint({
+                    "processed_urls": processed_urls,
+                    "stats": stats,
+                    "last_example_index": last_example_index
+                }, target_file_name)
+
             if stats["tokens"] >= tokens_to_process:
                 break
 
@@ -171,6 +226,8 @@ def truncate(
             "Top 3 Processed URLS": Counter(processed_urls).most_common(n=3)
         },
     )
+
+    remove_checkpoint(target_file_name)
 
 
 def generate_datasets(
