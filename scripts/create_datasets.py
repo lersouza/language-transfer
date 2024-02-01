@@ -96,7 +96,7 @@ def truncate(
     output_directory: Path,
     size_name: str = None,
     overwrite: bool = False,
-    checkpoint_every_n_examples: int = 500
+    checkpoint_every_n_examples: int = 1
 ):
     """
     Truncate the specified mC4's `language` subset to a maximum of `max_tokens`
