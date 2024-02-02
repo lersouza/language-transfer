@@ -186,7 +186,7 @@ def truncate(
         total=tokens_to_process
     ) as pbar:
         for idx, example in enumerate(original_dataset):
-            if idx < stats["last_saved_example_idx"]:
+            if idx < state["last_saved_example_idx"]:
                 pbar.update(stats["tokens"] // stats["examples"])
                 continue
 
