@@ -96,7 +96,7 @@ def flush_and_checkpoint_if_needed(
     last_saved_key: str = "last_saved_example_idx",
     force_flush: bool = False,
 ):
-    if checkpoint_every_n_examples % current_idx != 0 and not force_flush:
+    if current_idx % checkpoint_every_n_examples != 0 and not force_flush:
         return
 
     for example in examples_buffer:
