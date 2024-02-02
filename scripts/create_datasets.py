@@ -1,4 +1,3 @@
-
 """
 This script truncates mc4's language subset to a specified number of Byte-level tokens.
 """
@@ -71,7 +70,7 @@ def retrieve_checkpoint(target_file_path: str):
 
     if not os.path.exists(checkpoint_path):
         return None
-    
+
     with open(checkpoint_path, "rb") as ckpt_file:
         return pickle.load(ckpt_file)
 
@@ -87,6 +86,28 @@ def remove_checkpoint(related_file_path):
     os.remove(create_checkpoint_file_name(related_file_path))
 
 
+def flush_and_checkpoint_if_needed(
+    target_file_name: str,
+    checkpoint_every_n_examples: int,
+    current_idx: int,
+    examples_buffer: List[tf.train.Example],
+    state: Dict[str, Any],
+    record_writer: tf.io.TFRecordWriter,
+    last_saved_key: str = "last_saved_example_idx",
+    force_flush: bool = False,
+):
+    if checkpoint_every_n_examples % current_idx != 0 and not force_flush:
+        return
+
+    for example in examples_buffer:
+        record_writer.write(example.SerializeToString())
+
+    examples_buffer.clear()
+    state[last_saved_key] = current_idx
+
+    save_checkpoint(state, target_file_name)
+
+
 def truncate(
     language: str,
     split: str,
@@ -96,7 +117,7 @@ def truncate(
     output_directory: Path,
     size_name: str = None,
     overwrite: bool = False,
-    checkpoint_every_n_examples: int = 1
+    checkpoint_every_n_examples: int = 10_000,
 ):
     """
     Truncate the specified mC4's `language` subset to a maximum of `max_tokens`
@@ -125,47 +146,54 @@ def truncate(
 
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
-    processed_urls = []
-    last_example_index = 0
-    
+
     if not checkpoint:
-        stats = {
-            "language": language,
-            "split": split,
-            "examples": 0,
-            "original_text_length": 0,
-            "text_length_after_truncation": 0,
-            "tokens": 0,
-            "original_tokens_length": 0,
-            "max_tokens": tokens_to_process,
-            "max_train_tokens": max_train_tokens,
-            "validation_percentage": validation_percentage,
-            "token2text_rate": None,
-            "dropped_text_length": 0,
-            "dropped_tokens_length": 0,
+        state = {
+            "processed_urls": [],
+            "last_saved_example_idx": 0,
+            "stats": {
+                "language": language,
+                "split": split,
+                "examples": 0,
+                "original_text_length": 0,
+                "text_length_after_truncation": 0,
+                "tokens": 0,
+                "original_tokens_length": 0,
+                "max_tokens": tokens_to_process,
+                "max_train_tokens": max_train_tokens,
+                "validation_percentage": validation_percentage,
+                "token2text_rate": None,
+                "dropped_text_length": 0,
+                "dropped_tokens_length": 0,
+            },
         }
     else:
-        processed_urls = checkpoint["processed_urls"]
-        stats = checkpoint["stats"]
-        last_example_index = checkpoint["last_example_index"]
+        state = checkpoint
 
-        print("Restoring checkpoint. We'll start from example", last_example_index, ". Stats was:")
-        print_stats(stats)
+        print(
+            "Restoring checkpoint. Last Processed Example Index:",
+            state["last_saved_example_idx"],
+            "Stats was:",
+        )
+        print_stats(state["stats"])
 
         os.rename(target_file_name, f"{target_file_name}.{datetime.now().timestamp()}")
+
+    stats = state["stats"]
+    record_buffer = []
 
     with tf.io.TFRecordWriter(str(target_file_name)) as file_writer, tqdm(
         total=tokens_to_process
     ) as pbar:
         for idx, example in enumerate(original_dataset):
-            if idx < last_example_index:
+            if idx < stats["last_saved_example_idx"]:
                 pbar.update(stats["tokens"] // stats["examples"])
                 continue
 
             raw_text = example["text"]
             in_bytes = vocabulary.encode(raw_text)
 
-            processed_urls.append(example["url"])
+            state["processed_urls"].append(example["url"])
 
             stats["original_text_length"] += len(raw_text)
             stats["original_tokens_length"] += len(in_bytes)
@@ -187,30 +215,39 @@ def truncate(
                 in_bytes = in_bytes[:remaining]
                 raw_text = vocabulary.decode(in_bytes)
 
-            file_writer.write(
+            record_buffer.append(
                 tf.train.Example(
                     features=tf.train.Features(
                         feature={"text": _bytes_feature(raw_text.encode("utf-8"))}
                     )
-                ).SerializeToString()
+                )
             )
 
             stats["text_length_after_truncation"] += len(raw_text)
             stats["examples"] += 1
             stats["tokens"] += len(in_bytes)
 
+            flush_and_checkpoint_if_needed(
+                target_file_name,
+                checkpoint_every_n_examples,
+                idx,
+                record_buffer,
+                state,
+                file_writer,
+            )
+
             pbar.update(len(in_bytes))
 
-            if idx % checkpoint_every_n_examples == 0:
-                last_example_index = idx
-
-                save_checkpoint({
-                    "processed_urls": processed_urls,
-                    "stats": stats,
-                    "last_example_index": last_example_index
-                }, target_file_name)
-
             if stats["tokens"] >= tokens_to_process:
+                flush_and_checkpoint_if_needed(
+                    target_file_name,
+                    checkpoint_every_n_examples,
+                    idx,
+                    record_buffer,
+                    state,
+                    file_writer,
+                    force_flush=True,
+                )
                 break
 
     stats["token2text_rate"] = stats["tokens"] / stats["text_length_after_truncation"]
@@ -223,7 +260,7 @@ def truncate(
     print_stats(
         stats,
         additional_info={
-            "Top 3 Processed URLS": Counter(processed_urls).most_common(n=3)
+            "Top 3 Processed URLS": Counter(state["processed_urls"]).most_common(n=3)
         },
     )
 
