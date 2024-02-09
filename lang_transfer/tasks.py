@@ -7,6 +7,8 @@ import tensorflow as tf
 
 import preprocessing
 
+from pathlib import Path
+
 
 VOCAB_SIZE = seqio.ByteVocabulary().vocab_size
 
@@ -53,14 +55,21 @@ DATASET_SIZES = [
     "189M",
     "600M",
     "6B",
+    "150B",
 ]
 
+
+# ---------------- Bucket Config  ----------------
 BUCKET_NAME=os.environ.get("BUCKET_NAME", "lang_agnostic_europe")
+print("Using Bucket", BUCKET_NAME, "as source of data.")
+
+# ---------------- Local Files support Config  ----------------
+LOCAL_DATA_DIR=os.environ.get("LOCAL_DATA_DIR", Path.home())
+print("LOCAL_DATA_DIR=", LOCAL_DATA_DIR)
+
 
 # ---------------- Language tasks -----------------
-
 # ADD TRAIN datasets for all languages and sizes
-print("Using Bucket", BUCKET_NAME, "as source of data.")
 
 
 for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
@@ -69,6 +78,35 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         source=seqio.TFExampleDataSource(
             {
                 "train": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_train_{size_name}.tfrecord",
+            },
+            feature_description={
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+            },
+        ),
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
+
+    local_folder = os.path.join(LOCAL_DATA_DIR, lang)
+    file_base_name = f"mc4_{lang}_train_{size_name}.tfrecord"
+    files_or_file = None
+
+    index_file_path = os.path.join(local_folder, f"{file_base_name}.index")
+
+    if os.path.exists(index_file_path):
+        files_or_file = []
+
+        with open(index_file_path, "r", encoding="UTF-8") as idx_file:
+            files_or_file.extend(idx_file.readlines())
+    else:
+        files_or_file = os.path.join(local_folder, file_base_name)
+
+    seqio.TaskRegistry.add(
+        f"langagnostic.{lang}.{size_name}.local",
+        source=seqio.TFExampleDataSource(
+            {
+                "train": os.path.join(LOCAL_DATA_DIR, f"{lang}/mc4_{lang}_train_{size_name}.tfrecord"),
             },
             feature_description={
                 "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
