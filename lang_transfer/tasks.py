@@ -98,7 +98,10 @@ def _register_local_task(lang, size_name):
         files_or_file = []
 
         with open(index_file_path, "r", encoding="UTF-8") as idx_file:
-            files_or_file.extend(idx_file.readlines())
+            for path in idx_file:
+                path = path.strip()
+                if path:
+                    files_or_file.append(path)
     else:
         files_or_file = os.path.join(local_folder, file_base_name)
 
