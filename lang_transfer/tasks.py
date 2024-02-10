@@ -12,6 +12,7 @@ from pathlib import Path
 
 VOCAB_SIZE = seqio.ByteVocabulary().vocab_size
 
+
 DEFAULT_BYTE_OUTPUT_FEATURES = {
     "inputs": seqio.Feature(vocabulary=seqio.ByteVocabulary(), required=False),
     "targets": seqio.Feature(vocabulary=seqio.ByteVocabulary()),
@@ -68,11 +69,8 @@ LOCAL_DATA_DIR=os.environ.get("LOCAL_DATA_DIR", Path.home())
 print("LOCAL_DATA_DIR=", LOCAL_DATA_DIR)
 
 
-# ---------------- Language tasks -----------------
-# ADD TRAIN datasets for all languages and sizes
-
-
-for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
+# ---------------- Task Functions  ----------------
+def _register_gcs_task(lang, size_name):
     seqio.TaskRegistry.add(
         f"langagnostic.{lang}.{size_name}",
         source=seqio.TFExampleDataSource(
@@ -88,6 +86,8 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         metric_fns=[],
     )
 
+
+def _register_local_task(lang, size_name):
     local_folder = os.path.join(LOCAL_DATA_DIR, lang)
     file_base_name = f"mc4_{lang}_train_{size_name}.tfrecord"
     files_or_file = None
@@ -106,7 +106,7 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         f"langagnostic.{lang}.{size_name}.local",
         source=seqio.TFExampleDataSource(
             {
-                "train": os.path.join(LOCAL_DATA_DIR, f"{lang}/mc4_{lang}_train_{size_name}.tfrecord"),
+                "train": files_or_file,
             },
             feature_description={
                 "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
@@ -117,6 +117,8 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         metric_fns=[],
     )
 
+
+def _register_preprocessed_task(lang, size_name):
     seqio.TaskRegistry.add(
         f"langagnostic.{lang}.{size_name}.preprocessed",
         source=seqio.TFExampleDataSource(
@@ -138,6 +140,15 @@ for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
         output_features=DEFAULT_PASSTHROUGH_OUTPUT_FEATURES,
         metric_fns=[],
     )
+
+
+# ---------------- Language tasks -----------------
+# ADD TRAIN datasets for all languages and sizes
+
+for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
+    _register_gcs_task(lang, size_name)
+    _register_local_task(lang, size_name)
+    _register_preprocessed_task(lang, size_name)
 
 # ADD VALIDATION datasets for all languages
 for lang in ALL_LANGUAGES:
