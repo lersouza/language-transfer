@@ -109,3 +109,27 @@ def cast(x, features=["targets"], dtype=tf.int32):
     for feat in features:
         x[feat] = tf.cast(x[feat], dtype)
     return x
+
+
+def process_assin2(dataset):
+  """Convert ASSIN 2 dataset into a text2text format.
+
+  This function will return examples of the form:
+  {
+     'inputs': 'assin2: premise: <premise> hypothesis: <hypothesis>',
+     'targets': '<target>'
+  }
+
+  Args:
+    dataset: tf.data.Dataset to process.
+  Returns:
+    A preprocessed tf.data.Dataset with the format listed above.
+  """
+  def _process(x):
+    return {
+        'inputs': tf.strings.join(['assin2: premise: ', x['text'],
+                                   ' hypothesis: ', x['hypothesis']]),
+        'targets': tf.strings.as_string(x['entailment'])
+    }
+
+  return dataset.map(_process, num_parallel_calls=tf.data.experimental.AUTOTUNE)

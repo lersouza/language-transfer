@@ -8,6 +8,8 @@ import tensorflow as tf
 import preprocessing
 
 from pathlib import Path
+from t5.evaluation import metrics
+
 
 
 VOCAB_SIZE = seqio.ByteVocabulary().vocab_size
@@ -169,3 +171,18 @@ for lang in ALL_LANGUAGES:
         output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
         metric_fns=[],
     )
+
+
+# ---------------- Finetune on ASSIN 2 -----------------
+
+seqio.TaskRegistry.add(
+    "assin2",
+    source=seqio.TfdsDataSource(tfds_name="assin2:1.0.0", splits=["train", "validation"]),
+    preprocessors=[
+        preprocessing.process_assin2,
+        seqio.preprocessors.tokenize,
+        seqio.preprocessors.append_eos_after_trim,
+    ],
+    output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+    metric_fns=[metrics.accuracy]
+)

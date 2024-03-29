@@ -1,0 +1,46 @@
+from __gin__ import dynamic_registration
+import __main__ as train_script
+
+from t5x import utils
+from t5x import trainer
+
+from lang_transfer import tasks
+
+include "t5x/configs/runs/finetune.gin"
+include "lang_transfer/configs/models/70M.gin"
+
+# Must be overridden
+MODEL_DIR = %gin.REQUIRED
+MIXTURE_OR_TASK_NAME = %gin.REQUIRED
+INITIAL_CHECKPOINT_PATH = %gin.REQUIRED
+
+TASK_FEATURE_LENGTHS={"targets":1024}
+
+# Commonly overridden
+DROPOUT_RATE = 0.1
+USE_CACHED_TASKS = False
+BATCH_SIZE = 128
+
+# Sometimes overridden
+TRAIN_STEPS = 510  # (6,500 examples / 128 batch size) * 10 epochs
+EVAL_STEPS = 4 # (500 / 128) * 1
+EVAL_PERIOD = 51
+
+# Convenience overrides.
+EVALUATOR_USE_MEMORY_CACHE = True
+EVALUATOR_NUM_EXAMPLES = None  # Use all examples in the infer_eval dataset.
+JSON_WRITE_N_RESULTS = None  # Write all inferences.
+# HW RNG is faster than SW, but has limited determinism.
+# Most notably it is not deterministic across different
+# submeshes.
+USE_HARDWARE_RNG = False
+# None always uses faster, hardware RNG
+RANDOM_SEED = 42
+
+# DEPRECATED: Import the this module in your gin file.
+MIXTURE_OR_TASK_MODULE = None
+
+utils.create_learning_rate_scheduler:
+  factors = 'constant'
+  base_learning_rate = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
+  warmup_steps = 0
