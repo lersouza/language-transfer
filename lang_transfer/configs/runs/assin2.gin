@@ -44,3 +44,6 @@ utils.create_learning_rate_scheduler:
   factors = 'constant'
   base_learning_rate = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
   warmup_steps = 0
+
+utils.SaveCheckpointConfig:
+  period = 51
