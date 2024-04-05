@@ -2,6 +2,6 @@ datasets
 seqio
 t5
 optax
-
+seaborn
 google-cloud
 google-cloud-storage
