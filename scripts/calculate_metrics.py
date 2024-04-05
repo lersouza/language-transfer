@@ -29,6 +29,7 @@ MULTIPLIERS = {
 }
 
 FINETUNE_SIZES = [
+    0,
     6000000,
     19000000,
     60000000,
