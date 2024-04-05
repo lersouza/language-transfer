@@ -54,7 +54,7 @@ def format_in_mega(v):
 def preprocess(raw_data: pd.DataFrame) -> pd.DataFrame:
     raw_data["size"] = raw_data["data_size"].apply(convert_size_to_number)
     raw_data["cross_lingual"] = raw_data["initialization"] != raw_data["target"]
-    raw_data["perplexity"] = np.exp(raw_data["loss"])
+    raw_data["loss"] = raw_data["loss"]
 
     return raw_data
 
@@ -66,7 +66,7 @@ def prepare_by_source_language(raw_data: pd.DataFrame) -> pd.DataFrame:
         raw_data,
         index=["target", "size"],
         columns="initialization",
-        values="perplexity",
+        values="loss",
     )
 
     by_lang = {
@@ -110,17 +110,27 @@ def compute_data_transfer(by_lang_data):
             y_values = target_data["scratch"].to_numpy()
             y_values_dotted = target_data[lang].to_numpy()
 
+            # Since loss follows a power law, we apply a log-log scale, 
+            # linearly interpolate, then convert back to original scale.
+            x_values = np.log(x_values)
+            y_values = np.log(y_values)
+
             estimated_de = np.interp(
                 x=y_values_dotted, xp=y_values, fp=x_values, period=10
             )
+
+            x_values = np.exp(x_values)
+            y_values = np.exp(y_values)
+            estimated_de = np.exp(estimated_de)
+
             estimated_dt = estimated_de - x_values
             fraction_of_effective_dt = np.maximum(estimated_dt / estimated_de, 0)
 
             estimations["source"].extend([lang] * len(x_values))
             estimations["target"].extend([target] * len(x_values))
             estimations["size"].extend(x_values)
-            estimations["perplexity"].extend(y_values_dotted)
-            estimations["scratch_perplexity"].extend(y_values)
+            estimations["perplexity"].extend(np.exp(y_values_dotted))
+            estimations["scratch_perplexity"].extend(np.exp(y_values))
             estimations["de"].extend(estimated_de)
             estimations["df"].extend(x_values)
             estimations["dt"].extend(estimated_dt)
