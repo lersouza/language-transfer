@@ -110,17 +110,22 @@ def compute_data_transfer(by_lang_data):
             y_values = target_data["scratch"].to_numpy()
             y_values_dotted = target_data[lang].to_numpy()
 
-            # Since loss follows a power law, we apply a log-log scale, 
-            # linearly interpolate, then convert back to original scale.
-            x_values = np.log(x_values)
-            y_values = np.log(y_values)
+            # Since training loss vs tokens follows a power law,
+            # we apply a log-log scale, linearly interpolate, then convert
+            # back to original scale. We add 1e-9 to avoid minus infinity.
+            x_values = np.log(x_values + 1e-9)
+            y_values = np.log(y_values + 1e-9)
+
+            y_values_dotted = np.log(y_values_dotted)
 
             estimated_de = np.interp(
-                x=y_values_dotted, xp=y_values, fp=x_values, period=10
+                x=y_values_dotted, xp=y_values, fp=x_values, period=1000
             )
 
+            # Back to the original scale
             x_values = np.exp(x_values)
             y_values = np.exp(y_values)
+            y_values_dotted = np.exp(y_values_dotted)
             estimated_de = np.exp(estimated_de)
 
             estimated_dt = estimated_de - x_values
