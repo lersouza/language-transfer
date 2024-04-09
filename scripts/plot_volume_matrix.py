@@ -18,25 +18,37 @@ df = pd.read_csv(args.data_path)
 # Convert dt from bytes to Mbytes
 df['dt_Mbytes'] = df['dt'] / (1024 * 1024)
 
-# Pivot the dataframe to create the matrix
-matrix_df = df.pivot("target", "source", "dt_Mbytes")
+# Iterate through each unique label
+for label in df['Label'].unique():
+    # Filter dataframe for the current label
+    df_label = df[df['Label'] == label]
 
-# Calculate row and column averages
-row_averages = matrix_df.mean(axis=1).rename("Row Avg")
-column_averages = matrix_df.mean(axis=0).rename("Col Avg")
+    # Pivot the dataframe to create the matrix for the current label
+    matrix_df = df_label.pivot("target", "source", "dt_Mbytes")
 
-# Append the averages to the dataframe
-matrix_df["Row Avg"] = row_averages
-column_averages_df = pd.DataFrame(column_averages).transpose()
-enhanced_matrix_df = pd.concat([matrix_df, column_averages_df], axis=0)
+    # Calculate row and column averages
+    row_averages = matrix_df.mean(axis=1).rename("Row Avg")
+    column_averages = matrix_df.mean(axis=0).rename("Col Avg")
 
-# Plotting
-plt.figure(figsize=(12, 10))
-sns.heatmap(enhanced_matrix_df, annot=True, fmt=".0f", cmap="Blues", cbar_kws={'label': 'Data Transfer (Mbytes)'})
-plt.title(f'Data Transfer Volume Matrix {args.data_path}')
-plt.xlabel('Source Language')
-plt.ylabel('Target Language')
-plt.tight_layout()
+    # Append the averages to the dataframe
+    matrix_df["Row Avg"] = row_averages
+    column_averages_df = pd.DataFrame(column_averages).transpose()
+    enhanced_matrix_df = pd.concat([matrix_df, column_averages_df], axis=0)
 
-# Show the plot
-plt.show()
+    # Plotting for each label
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(enhanced_matrix_df, annot=True, fmt=".0f", cmap="Blues", cbar_kws={'label': 'Data Transfer (Mbytes)'})
+    plt.title(f'Data Transfer Volume Matrix for {label}')
+    plt.xlabel('Source Language')
+    plt.ylabel('Target Language')
+    plt.tight_layout()
+
+    # Save the plot
+    filename = f"./Volume Matrix {label}.png"
+    plt.savefig(filename)
+    print(f"Plot saved as {filename}.")
+
+    # Clear the figure to prevent overlap in plots
+    plt.clf()
+
+print("Done!")
