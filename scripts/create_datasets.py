@@ -185,11 +185,12 @@ def truncate(
     with tf.io.TFRecordWriter(str(target_file_name)) as file_writer, tqdm(
         total=tokens_to_process
     ) as pbar:
-        for idx, example in enumerate(original_dataset):
-            if idx < state["last_saved_example_idx"]:
-                pbar.update(stats["tokens"] // stats["examples"])
-                continue
+        
+        if state["last_saved_example_idx"] > 0:
+            original_dataset.skip(state["last_saved_example_idx"] + 1)
+            pbar.update(stats["tokens"])
 
+        for idx, example in enumerate(original_dataset):
             raw_text = example["text"]
             in_bytes = vocabulary.encode(raw_text)
 
