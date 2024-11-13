@@ -46,4 +46,4 @@ utils.create_learning_rate_scheduler:
   warmup_steps = 0
 
 utils.SaveCheckpointConfig:
-  period = 51
+  period = %EVAL_PERIOD
