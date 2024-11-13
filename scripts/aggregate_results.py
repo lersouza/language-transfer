@@ -1,10 +1,12 @@
 import argparse
+import json
 import logging
 import os
 import re
 import tempfile
 
 from pathlib import Path
+from typing import Dict, List
 
 import tensorflow as tf
 import pandas as pd
@@ -26,7 +28,7 @@ ROOT_FOLDER = Path(__file__).parent.parent.resolve()
 BUCKETS = ["lang_agnostic", "lang_agnostic_europe"]
 
 # Some experiment metadata can be extracted from file names
-EXP_PATTERN = r"\.*\/(?P<filename>(?P<initialization>\w+)_(?P<target>\w+)_(?P<model_size>\w+)_(?P<data_size>[0-9]+[MB]+))\/$"
+EXP_PATTERN = r"\.*\/(?P<filename>(?P<initialization>(?P<init_language>\w{2,7})(_from_(?P<init_data_size>[0-9]+[MB]+)(_(?P<init_train_epochs>\d+)epochs){0,1}){0,1})_(?P<target>\w{2})_(?P<model_size>(small|gadre_1.4B|550M))_(?P<data_size>[0-9]+[MB]+)(_(?P<finetune_epochs>\d+)epoch[s]*){0,1})\/$"
 
 # We remove some experiments based on patterns over metadata
 EXPERIMENTS_TO_REMOVE = [
@@ -34,10 +36,11 @@ EXPERIMENTS_TO_REMOVE = [
         "bucket": "lang_agnostic",
         "target": "es",
         "data_size": "6B",
-        "initialization": "en",
-    },  # Results are inconsitent. Experiment was re-
+        "init_language": "en",
+    },  # Results are inconsitent. Experiment was made again in Europe Bucket.
     {"target": "es", "data_size": "0M"},
     {"target": "pt"},
+    {"url_metadata": "no"}
 ]
 
 # The metric of interest for LOSS.
@@ -48,6 +51,22 @@ client = storage.Client()
 
 # Logger definition
 LOGGER = logging.getLogger(__file__)
+
+
+def extract_metadata_from_name(
+    experiment_path: str, bucket_name: str
+) -> Dict[str, str]:
+    """
+    Extracts metadata information from URL.
+    If no metadata could be extracted, property "url_metadata" will be "no".
+    """
+    matched = re.search(EXP_PATTERN, experiment_path)
+    base_metadata = {"url": experiment_path, "bucket": bucket_name}
+
+    if matched:
+        return {**base_metadata, "url_metadata": "yes", **matched.groupdict()}
+
+    return {**base_metadata, "url_metadata": "no"}
 
 
 def list_experiments():
@@ -65,14 +84,38 @@ def list_experiments():
         )  # Force request execution
 
         experiments_in_storage.extend(
-            [
-                {"url": i, "bucket": bucket, **re.search(EXP_PATTERN, i).groupdict()}
-                for i in prefixes
-                if re.search(EXP_PATTERN, i)
-            ]
+            [extract_metadata_from_name(i, bucket) for i in prefixes]
         )
 
     return experiments_in_storage
+
+
+def log_ignored_experiments(ignored_experiments: List):
+    """
+    Log, as a JSON file, the experiments that were ignored when compiling results.
+    """
+    target_path = str(Path(ROOT_FOLDER / f"results/ignored_experiments.json"))
+
+    with open(target_path, "w+", encoding="utf-8") as ignore_file:
+        json.dump(ignored_experiments, ignore_file)
+
+
+def download_dataset_stats(target_dir):
+    """
+    Lists all Datasets available for experiments.
+    """
+    available_datasets = []
+
+    for bucket in BUCKETS:
+        files = client.list_blobs(
+            bucket, prefix="dataset/", match_glob="**.tfrecord.stats"
+        )
+
+        for stats_file in files:
+            target_path = os.path.join(target_dir, os.path.split(stats_file.name)[1])
+            stats_file.download_to_filename(target_path)
+
+            yield target_path
 
 
 def should_take_out(exp):
@@ -81,7 +124,7 @@ def should_take_out(exp):
     Returns `True` if it should be ignored and `False` otherwise.
     """
     for r in EXPERIMENTS_TO_REMOVE:
-        if all([exp[k] == r[k] for k in r.keys()]):
+        if all([k in exp and exp[k] == r[k] for k in r.keys()]):
             return True
     return False
 
@@ -166,16 +209,37 @@ def aggregate_results(experiments):
     return all_experiment_results
 
 
-def export_experiments_to_csv():
+def process_dataset_stats(dataset_stats_files):
     """
-    Export experiments from GCS Tensorboard files to a CSV file.
+    Process a list of dataset stats files and return a dictionary with all attributes in those files.
     """
-    target_path = str(Path(ROOT_FOLDER / "results/experiments.csv"))
+    dataset_info = defaultdict(list)
+    dataset_stat_file_regex = r"(?P<origin>[\w\d]+)_(?P<language_split>[\w]{2})_(?P<train_split>[\w]+)_(?P<size_name>[\w\d]+)"
 
-    LOGGER.info("About to retrieve experiments and save them to %s", target_path)
+    for ds_stat in dataset_stats_files:
+        with open(ds_stat, "r", encoding="utf-8") as stat_file:
+            file_ms_name = os.path.split(str(stat_file))[1].split(".")[0]
+            file_name_metadata = re.search(dataset_stat_file_regex, file_ms_name)
 
+            for k, v in file_name_metadata.groupdict().items():
+                dataset_info[k].append(v)
+
+            for line in stat_file:
+                k, v = line.split(":")
+                dataset_info[k.strip()].append(v.strip())
+
+    return dataset_info
+
+
+def retrieve_finetune_results():
+    """
+    Retrieve results from finetune experiments in GCS and return a Data Frame consolidating its data.
+    """
     all_experiments = list_experiments()
     filtered_experiments = [a for a in all_experiments if not should_take_out(a)]
+
+    # Log ignored experiments for troubleshooting purposes.
+    log_ignored_experiments([a for a in all_experiments if should_take_out(a)])
 
     LOGGER.info(
         f"Retrieved {len(all_experiments)}. After filtering:"
@@ -183,13 +247,66 @@ def export_experiments_to_csv():
     )
 
     all_experiment_results = aggregate_results(filtered_experiments)
-    df = pd.DataFrame.from_dict(all_experiment_results)
+    return pd.DataFrame.from_dict(all_experiment_results)
+
+
+def retrieve_dataset_stats():
+    """
+    Retrive statistics from the datasets used for the experiments in a DataFrame.
+    """
+    with tempfile.TemporaryDirectory() as tempdir:
+        dataset_info = process_dataset_stats(download_dataset_stats(tempdir))
+
+    return pd.DataFrame.from_dict(dataset_info).drop_duplicates()
+
+
+def retrieve_pretrain_results():
+    """
+    Retrieve results from pretraining experiments with source languages in GCS
+    and return a Data Frame consolidating its data.
+    """
+    pass
+
+
+def export_experiments_to_csv(info_to_retrieve: str):
+    """
+    Export experiments from GCS Tensorboard files to a CSV file.
+    """
+    target_path = str(Path(ROOT_FOLDER / f"results/{info_to_retrieve}_data.csv"))
+
+    LOGGER.info(
+        "About to retrieve %s experiments and save them to %s",
+        info_to_retrieve,
+        target_path,
+    )
+
+    method = AVAILABLE_RESULTS.get(info_to_retrieve, None)
+
+    if not method:
+        LOGGER.error("Method for %s is not implemented!", info_to_retrieve)
+        return
+
+    data: pd.DataFrame = method()
 
     with open(target_path, "w+", encoding="utf-8") as target_file:
-        df.to_csv(target_file)
+        data.to_csv(target_file)
+
+
+# Possible results to retrieve
+AVAILABLE_RESULTS = {
+    "finetune": retrieve_finetune_results,
+    "datasets": retrieve_dataset_stats,
+    "pretrain": retrieve_pretrain_results,
+}
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
 
-    export_experiments_to_csv()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("info_to_retrieve", choices=AVAILABLE_RESULTS.keys())
+    parser.add_argument("--verbose", action="store_true")
+
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+
+    export_experiments_to_csv(args.info_to_retrieve)

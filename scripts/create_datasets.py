@@ -117,6 +117,8 @@ def truncate(
     output_directory: Path,
     size_name: str = None,
     overwrite: bool = False,
+    shuffle_seed: int = None,
+    shuffle_buffer_size: int = None,
     checkpoint_every_n_examples: int = 10_000,
 ):
     """
@@ -146,6 +148,9 @@ def truncate(
 
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
+
+    if shuffle_buffer_size:
+        original_dataset.shuffle(seed=shuffle_seed, buffer_size=shuffle_buffer_size)
 
     if not checkpoint:
         state = {
@@ -274,6 +279,8 @@ def generate_datasets(
     keep_full_doc: bool,
     output_directory: str,
     overwrite: bool,
+    shuffle_seed: int = None,
+    shuffle_buffer_size: int = None,
     sizes: Dict[str, int] = None,
 ):
     """
@@ -297,6 +304,8 @@ def generate_datasets(
             output_directory=output_directory,
             size_name=size_name,
             overwrite=overwrite,
+            shuffle_seed=shuffle_seed,
+            shuffle_buffer_size=shuffle_buffer_size,
         )
 
     if validation_pct is not None:
@@ -322,6 +331,8 @@ if __name__ == "__main__":
     parser.add_argument("--keep_full_doc", action="store_true", default=False)
     parser.add_argument("--output_dir", type=Path, default=Path("./"))
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--shuffle_seed", type=int, default=None)
+    parser.add_argument("--shuffle_buffer_size", type=int, default=None)
     parser.add_argument(
         "--sizes", type=str, help="A dictionary with <size_name, size> in tokens."
     )
@@ -335,5 +346,7 @@ if __name__ == "__main__":
         args.keep_full_doc,
         args.output_dir,
         args.overwrite,
+        args.shuffle_seed,
+        args.shuffle_buffer_size,
         sizes_to_generate,
     )
