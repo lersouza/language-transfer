@@ -104,8 +104,6 @@ def download_dataset_stats(target_dir):
     """
     Lists all Datasets available for experiments.
     """
-    available_datasets = []
-
     for bucket in BUCKETS:
         files = client.list_blobs(
             bucket, prefix="dataset/", match_glob="**.tfrecord.stats"
