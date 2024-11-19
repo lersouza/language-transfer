@@ -1,7 +1,11 @@
 import argparse
+import logging
 import pandas as pd
 
 from pathlib import Path
+
+
+LOGGER = logging.getLogger("build_tidy_dataset")
 
 
 BASE_DATA_COLUMNS = {
@@ -43,8 +47,37 @@ DATASET_STATS_COLUMNS = {
 }
 
 
+CONTAMINATION_DATA_COLUMNS = {
+    "source_language": "primary_language",
+    "sentences": "sentence_count",
+    "target_language": "detected_language_label",
+    "size": "dataset_size",
+}
+
+
+MULTIPLIERS = {
+    "M": 1000000,
+    "B": 1000000000,
+}
+
+
+def convert_size_to_number(number_repr):
+    suffix = number_repr[-1]
+    multiplier = MULTIPLIERS[suffix]
+    number_part = number_repr[:-1]
+
+    return int(number_part) * multiplier
+
+
 def read_contamination_data(lang_contamination_dir: Path) -> pd.DataFrame:
-    return pd.DataFrame()
+    files = [
+        str(file)
+        for file in lang_contamination_dir.glob("languages_in_*_*_byline_dataset.csv")
+    ]
+    print(list(files))
+    language_contamination_data = pd.concat([pd.read_csv(f) for f in files])
+
+    return language_contamination_data
 
 
 def preprocess_base_data(base_data: pd.DataFrame) -> pd.DataFrame:
@@ -87,8 +120,36 @@ def preprocess_stats_file(dataset_stats_data: pd.DataFrame) -> pd.DataFrame:
     return dataset_stats_data
 
 
-def preprocess_contamination_data(contamindation_data: pd.DataFrame) -> pd.DataFrame:
-    return contamindation_data
+def preprocess_contamination_data(contamination_data: pd.DataFrame) -> pd.DataFrame:
+    contamination_data = contamination_data[
+        list(CONTAMINATION_DATA_COLUMNS.keys())
+    ].rename(columns=CONTAMINATION_DATA_COLUMNS)
+
+    all_sentences_per_language = contamination_data.groupby("primary_language")[
+        "sentence_count"
+    ].sum()
+
+    contamination_data["detected_language_ratio"] = contamination_data.apply(
+        lambda r: r["sentence_count"]
+        / all_sentences_per_language[r["primary_language"]],
+        axis=1,
+    )
+
+    contamination_data["detected_language"] = contamination_data[
+        "detected_language_label"
+    ].apply(lambda e: e.split("_")[-1])
+
+    print(
+        contamination_data[
+            (contamination_data["primary_language"] == "ar")
+            & (contamination_data["dataset_size"] == "6M")
+        ]
+    )
+    contamination_data = contamination_data.set_index(
+        ["primary_language", "dataset_size", "detected_language"]
+    )
+
+    return contamination_data.drop(columns=["detected_language_label"])
 
 
 def combine_with_dataset_stats(
@@ -113,7 +174,32 @@ def combine_with_dataset_stats(
 def combine_with_language_contamination(
     base_data: pd.DataFrame, contamination_data: pd.DataFrame
 ) -> pd.DataFrame:
-    return base_data
+
+    tidy_data = base_data.join(
+        contamination_data,
+        on=["source", "source_data_size", "target"],
+        how="left",
+        rsuffix="_on_source",
+    )
+
+    tidy_data = tidy_data.join(
+        contamination_data,
+        on=["target", "target_data_size", "source"],
+        how="left",
+        rsuffix="_on_target",
+    )
+
+    # Fill with 0 the cases in which there is no contamination
+    # or, at least, it is so few sentences that is shows as 'others'
+    tidy_data.loc[
+        tidy_data["detected_language_ratio"].isna(), "detected_language_ratio"
+    ] = 0
+    tidy_data.loc[
+        tidy_data["detected_language_ratio_on_target"].isna(),
+        "detected_language_ratio_on_target",
+    ] = 0
+
+    return tidy_data
 
 
 def build_tidy(
@@ -126,12 +212,22 @@ def build_tidy(
     dataset_stats_data = pd.read_csv(dataset_stats_file)
     contamination_data = read_contamination_data(lang_contamination_dir)
 
+    LOGGER.info(
+        "Successfuly loaded all datasets. Sizes are: base=%d, stats=%d, contamination=%d",
+        len(base_data),
+        len(dataset_stats_data),
+        0,
+        # len(contamination_data),
+    )
+
     base_data = preprocess_base_data(base_data)
     dataset_stats_data = preprocess_stats_file(dataset_stats_data)
     contamination_data = preprocess_contamination_data(contamination_data)
 
     tidy_data = combine_with_dataset_stats(base_data, dataset_stats_data)
     tidy_data = combine_with_language_contamination(tidy_data, contamination_data)
+
+    LOGGER.info("Finished building tidy dataset. Final size is %d", len(tidy_data))
 
     tidy_data.to_csv(output_file_path)
 
@@ -146,6 +242,9 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", type=Path, default=Path(".") / "tidy_data.csv")
 
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
     build_tidy(
         args.base_file,
         args.dataset_stats_file,
