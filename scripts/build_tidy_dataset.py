@@ -74,7 +74,6 @@ def read_contamination_data(lang_contamination_dir: Path) -> pd.DataFrame:
         str(file)
         for file in lang_contamination_dir.glob("languages_in_*_*_byline_dataset.csv")
     ]
-    print(list(files))
     language_contamination_data = pd.concat([pd.read_csv(f) for f in files])
 
     return language_contamination_data
@@ -139,12 +138,6 @@ def preprocess_contamination_data(contamination_data: pd.DataFrame) -> pd.DataFr
         "detected_language_label"
     ].apply(lambda e: e.split("_")[-1])
 
-    print(
-        contamination_data[
-            (contamination_data["primary_language"] == "ar")
-            & (contamination_data["dataset_size"] == "6M")
-        ]
-    )
     contamination_data = contamination_data.set_index(
         ["primary_language", "dataset_size", "detected_language"]
     )
