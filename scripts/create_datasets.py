@@ -45,7 +45,7 @@ def save_stats(target_file_name: Path, stats: Dict[str, Any]):
 
 
 def print_stats(
-    stats: Dict[str, Any], additional_info: Dict[str, Any] = None, complete: bool = True
+    stats: Dict[str, Any], additional_info: Dict[str, Any] | None = None, complete: bool = True
 ):
     """Print statistics for followup"""
     status_message = "Done truncating." if complete else "Intermediary Stats."
@@ -61,11 +61,11 @@ def print_stats(
     print("=" * 100)
 
 
-def create_checkpoint_file_name(target_file_path: str):
+def create_checkpoint_file_name(target_file_path: Path | str):
     return f"{target_file_path}.ckpt"
 
 
-def retrieve_checkpoint(target_file_path: str):
+def retrieve_checkpoint(target_file_path: Path | str):
     checkpoint_path = create_checkpoint_file_name(target_file_path)
 
     if not os.path.exists(checkpoint_path):
@@ -87,7 +87,7 @@ def remove_checkpoint(related_file_path):
 
 
 def flush_and_checkpoint_if_needed(
-    target_file_name: str,
+    target_file_name: Path | str,
     checkpoint_every_n_examples: int,
     current_idx: int,
     examples_buffer: List[tf.train.Example],
@@ -115,10 +115,10 @@ def truncate(
     keep_full_doc: bool,
     validation_percentage: float,
     output_directory: Path,
-    size_name: str = None,
-    overwrite: bool = False,
-    shuffle_seed: int = None,
-    shuffle_buffer_size: int = None,
+    size_name: str | None = None,
+    overwrite: bool | None = False,
+    shuffle_seed: int | None = None,
+    shuffle_buffer_size: int | None = None,
     checkpoint_every_n_examples: int = 10_000,
 ):
     """
@@ -279,9 +279,9 @@ def generate_datasets(
     keep_full_doc: bool,
     output_directory: str,
     overwrite: bool,
-    shuffle_seed: int = None,
-    shuffle_buffer_size: int = None,
-    sizes: Dict[str, int] = None,
+    shuffle_seed: int | None = None,
+    shuffle_buffer_size: int | None = None,
+    sizes: Dict[str, int] | None = None,
 ):
     """
     Generates train and validation datasets for a given `language`
