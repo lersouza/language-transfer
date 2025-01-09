@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Dict, Iterable
 
 import fasttext
 import tensorflow as tf
@@ -22,6 +22,10 @@ LOGGER = logging.getLogger("language_classifier")
 
 
 class ClassificationStrategy(ABC):
+
+    def __init__(self) -> None:
+        self.name = ""
+
     @abstractmethod
     def load_dataset(self, language, size, bucket) -> tf.data.Dataset:
         pass
@@ -31,8 +35,9 @@ class ClassificationStrategy(ABC):
         pass
 
 
-class ClassifyByLineStrategy:
+class ClassifyByLineStrategy(ClassificationStrategy):
     def __init__(self) -> None:
+        super(ClassifyByLineStrategy).__init__()
         self.name = "byline"
 
     @staticmethod
@@ -117,7 +122,7 @@ def format_stats_into_lines(source_language, size, stats):
 def classify_dataset(
     language, size, bucket, model, strategy: ClassificationStrategy, threshold: float
 ):
-    stats = defaultdict(lambda: 0)
+    stats: Dict[str, Any] = defaultdict(lambda: 0.0)
 
     stats["min_line_size"] = 999
     stats["max_line_size"] = 0
@@ -216,11 +221,12 @@ def run_for_languages(
     threshold: float,
 ):
     LOGGER.info(
-        "Running for languages: %s and sizes %s. Model is %s. Thresold is %f.",
+        "Running for languages: %s and sizes %s. Model is %s. Thresold is %f. Strategy is %s.",
         languages,
         sizes,
         model_path,
         threshold,
+        strategy.name,
     )
 
     for lang, size in itertools.product(languages, sizes):
@@ -247,7 +253,7 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", default=0.6)
 
     args = parser.parse_args()
-    strategy = __STRATEGIES.get(args.strategy)()
+    strategy = __STRATEGIES.get(args.strategy, ClassifyByLineStrategy)()
 
     languages = __ALL_LANGUAGES if args.language == "all" else [args.language]
     sizes = __DATASET_SIZES if args.size == "all" else [args.size]
