@@ -7,11 +7,12 @@ The data consists of n-grams randomly selected to form sentences and paragraphs.
 """
 
 import argparse
-from typing import Any, Dict
 import numpy as np
 import tensorflow as tf
 
+from random import choices, randint
 from tqdm import tqdm
+from typing import Any, Dict
 
 
 # The number of tokens to include in the dataset of size 6B
@@ -48,10 +49,13 @@ class RandomVocab:
 
 class BaseGenerator:
     """
-    This class was extracted from https://github.com/acmi-lab/pretraining-with-nonsense/
+    This class was extracted and adapted from https://github.com/acmi-lab/pretraining-with-nonsense/
     It generates paragraphs with a specificed average number of sentences and words.
 
-    We have only adapted it so it works only with RandomVocab.
+    The adaptation includes the following:
+    (1) Use `RandomVocab` as a fixed vocab, not enabling the T5Vocab as in the original class
+    (2) Added a `get_example` method for generating an entire document (set of paragraphs)
+    (3) Joined `gen_sent` and `get_para` methods to improve code performance by leveraging matrix operations in numpy.
     """
 
     def __init__(
@@ -65,29 +69,29 @@ class BaseGenerator:
         self.paralen_tolerance = paralen_tolerance
 
         self.vocab = RandomVocab()
-        tokens = self.vocab.tokens
-        self.tokens = [tok for tok in tokens if "." not in tok]
-
-    def gen_sent(self, num_toks):
-        sampled_tokens = np.random.choice(self.tokens, (num_toks,), replace=True)
-        return " ".join(sampled_tokens)
+        self.tokens = [tok for tok in self.vocab.tokens if "." not in tok]
 
     def get_para(self, mean_numsents, mean_sentlen):
-        numsents = mean_numsents + np.random.randint(
+        num_sentences = mean_numsents + np.random.randint(
             -self.numsent_tolerance, self.numsent_tolerance + 1
         )
-        numsents = max(1, numsents)
+        max_num_tokens = mean_sentlen + self.sentlen_tolerance
+        min_num_tokens = mean_sentlen - self.sentlen_tolerance
 
-        sentences = []
-        for _ in range(numsents):
-            sentlen = mean_sentlen + np.random.randint(
-                -self.sentlen_tolerance, self.sentlen_tolerance + 1
+        random_sentences = [
+            " ".join(
+                choices(
+                    row,
+                    k=randint(min_num_tokens, max_num_tokens),
+                )
             )
-            sentlen = max(1, sentlen)
-            sent = self.gen_sent(sentlen)
-            sentences.append(sent + " .")
+            + "."
+            for row in np.random.choice(
+                self.tokens, (num_sentences, max_num_tokens), replace=True
+            )
+        ]
 
-        return sentences
+        return random_sentences
 
     def get_example(
         self, mean_numpara: int = 10, mean_numsent: int = 10, mean_sentlen: int = 10
@@ -114,7 +118,6 @@ class BaseGenerator:
             -self.paralen_tolerance, self.paralen_tolerance + 1
         )
         num_paragraphs = max(1, num_paragraphs)
-
         paragraphs = []
 
         for _ in range(num_paragraphs):
@@ -162,13 +165,16 @@ def print_stats(
     print("=" * 100)
 
 
-def create_nonsense_data(tokens: int, split: str, output_path: str):
+def create_nonsense_data(
+    tokens: int, split: str, output_path: str, write_every_n_examples: int = 100_000
+):
     """
     Creates a dataset with non-sense data. The number of tokens to include is specified by `tokens`.
     The final TF Examples file is output at `output_path`.
     """
     generator = BaseGenerator()
-    size = 0
+    buffer = []
+    size, num_of_writes = 0, 0
 
     stats = {
         "language": "nonsense",
@@ -185,9 +191,12 @@ def create_nonsense_data(tokens: int, split: str, output_path: str):
         "dropped_tokens_length": 0,
     }
 
-    with tf.io.TFRecordWriter(output_path) as out_file, tqdm(total=tokens) as pbar:
+    with tf.io.TFRecordWriter(output_path) as out_file, tqdm(
+        total=tokens
+    ) as pbar, tqdm(total=0, position=1, bar_format="{desc}") as sbar:
+        sbar.set_description_str(f"No writes. Buffer size is {write_every_n_examples}.")
         while size < tokens:
-            document = " ".join(generator.get_example(8, 10, 10))
+            document = " ".join(generator.get_example())
             document_size = len(document)
 
             stats["original_text_length"] += document_size
@@ -204,15 +213,30 @@ def create_nonsense_data(tokens: int, split: str, output_path: str):
             stats["examples"] += 1
             stats["tokens"] += document_size
 
-            out_file.write(
+            buffer.append(
                 tf.train.Example(
                     features=tf.train.Features(
                         feature={"text": create_byte_feature(document.encode("utf-8"))}
                     )
-                ).SerializeToString()
+                )
             )
 
+            if len(buffer) % write_every_n_examples == 0:
+                num_of_writes += 1
+                sbar.set_description_str(
+                    f"Number of writes: {num_of_writes}. Last write: Writing {len(buffer)} examples to file"
+                )
+                for example in buffer:
+                    out_file.write(example.SerializeToString())
+
+                buffer.clear()
+
             pbar.update(document_size)
+
+    # Flush the final examples
+    if buffer:
+        for example in buffer:
+            out_file.write(example.SerializeToString())
 
     stats["token2text_rate"] = stats["tokens"] / stats["text_length_after_truncation"]
     stats["dropped_tokens_length"] = stats["original_tokens_length"] - stats["tokens"]
