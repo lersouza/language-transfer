@@ -172,6 +172,26 @@ for lang in ALL_LANGUAGES:
         metric_fns=[],
     )
 
+# ---------------- Synthetic Data Tasks -----------------
+for synthetic_language in ["nonsense", "hierarchical"]:
+
+    # Register the pretrain tasks (train an validation)
+    seqio.TaskRegistry.add(
+        f"langagnostic.{synthetic_language}.6B",
+        source=seqio.TFExampleDataSource(
+            {
+                "train": f"gs://{BUCKET_NAME}/dataset/{synthetic_language}/synthetic_{synthetic_language}_train_6B.tfrecord",
+                "validation": f"gs://{BUCKET_NAME}/dataset/{synthetic_language}/synthetic_{synthetic_language}_validation_6B-slice.tfrecord"
+            },
+            feature_description={
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+            },
+        ),
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
+
 
 # ---------------- Finetune on ASSIN 2 -----------------
 
