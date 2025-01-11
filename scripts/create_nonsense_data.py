@@ -233,10 +233,10 @@ def create_nonsense_data(
 
             pbar.update(document_size)
 
-    # Flush the final examples
-    if buffer:
-        for example in buffer:
-            out_file.write(example.SerializeToString())
+        # Flush the final examples
+        if buffer:
+            for example in buffer:
+                out_file.write(example.SerializeToString())
 
     stats["token2text_rate"] = stats["tokens"] / stats["text_length_after_truncation"]
     stats["dropped_tokens_length"] = stats["original_tokens_length"] - stats["tokens"]
