@@ -181,6 +181,20 @@ for synthetic_language in ["nonsense", "hierarchical"]:
         source=seqio.TFExampleDataSource(
             {
                 "train": f"gs://{BUCKET_NAME}/dataset/{synthetic_language}/synthetic_{synthetic_language}_train_6B.tfrecord",
+            },
+            feature_description={
+                "text": tf.io.FixedLenFeature([], tf.string, default_value=""),
+            },
+        ),
+        preprocessors=DEFAULT_PRE_PROCESSORS,
+        output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
+        metric_fns=[],
+    )
+
+    seqio.TaskRegistry.add(
+        f"langagnostic.{synthetic_language}.validation",
+        source=seqio.TFExampleDataSource(
+            {
                 "validation": f"gs://{BUCKET_NAME}/dataset/{synthetic_language}/synthetic_{synthetic_language}_validation_6B-slice.tfrecord"
             },
             feature_description={
