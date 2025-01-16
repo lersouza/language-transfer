@@ -5,7 +5,7 @@ import os
 import seqio
 import tensorflow as tf
 
-import preprocessing
+from lang_transfer import preprocessing
 
 from pathlib import Path
 from t5.evaluation import metrics
