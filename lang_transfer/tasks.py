@@ -147,18 +147,11 @@ def _register_preprocessed_task(lang, size_name):
     )
 
 
-# ---------------- Language tasks -----------------
-# ADD TRAIN datasets for all languages and sizes
+def _register_gcs_val_task(lang_task_name, lang=None):
+    lang = lang or lang_task_name
 
-for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
-    _register_gcs_task(lang, size_name)
-    _register_local_task(lang, size_name)
-    _register_preprocessed_task(lang, size_name)
-
-# ADD VALIDATION datasets for all languages
-for lang in ALL_LANGUAGES:
     seqio.TaskRegistry.add(
-        f"langagnostic.{lang}.validation",
+        f"langagnostic.{lang_task_name}.validation",
         source=seqio.TFExampleDataSource(
             {
                 "validation": f"gs://{BUCKET_NAME}/dataset/{lang}/mc4_{lang}_validation_6B-slice.tfrecord",
@@ -171,6 +164,20 @@ for lang in ALL_LANGUAGES:
         output_features=DEFAULT_BYTE_OUTPUT_FEATURES,
         metric_fns=[],
     )
+
+
+# ---------------- Language tasks -----------------
+# ADD TRAIN datasets for all languages and sizes
+
+for lang, size_name in itertools.product(ALL_LANGUAGES, DATASET_SIZES):
+    _register_gcs_task(lang, size_name)
+    _register_local_task(lang, size_name)
+    _register_preprocessed_task(lang, size_name)
+
+# ADD VALIDATION datasets for all languages
+
+for lang in ALL_LANGUAGES:
+    _register_gcs_val_task(lang)
 
 # ---------------- Synthetic Data Tasks -----------------
 for synthetic_language in ["nonsense", "hierarchical"]:
@@ -206,6 +213,10 @@ for synthetic_language in ["nonsense", "hierarchical"]:
         metric_fns=[],
     )
 
+
+# ---------------- English for Train on a different distribution --------------#
+_register_gcs_task("env2", "6B")
+_register_gcs_val_task("env2", "en")
 
 # ---------------- Finetune on ASSIN 2 -----------------
 
