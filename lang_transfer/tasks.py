@@ -63,7 +63,7 @@ DATASET_SIZES = [
 
 
 # ---------------- Bucket Config  ----------------
-BUCKET_NAME=os.environ.get("BUCKET_NAME", "lang_agnostic_europe")
+BUCKET_NAME=os.environ.get("BUCKET_NAME", "lang_agnostic")
 print("Using Bucket", BUCKET_NAME, "as source of data.")
 
 # ---------------- Local Files support Config  ----------------
