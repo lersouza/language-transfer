@@ -1,6 +1,7 @@
 """
 This script truncates mc4's language subset to a specified number of Byte-level tokens.
 """
+
 import argparse
 import json
 import os
@@ -45,7 +46,9 @@ def save_stats(target_file_name: Path, stats: Dict[str, Any]):
 
 
 def print_stats(
-    stats: Dict[str, Any], additional_info: Dict[str, Any] | None = None, complete: bool = True
+    stats: Dict[str, Any],
+    additional_info: Dict[str, Any] | None = None,
+    complete: bool = True,
 ):
     """Print statistics for followup"""
     status_message = "Done truncating." if complete else "Intermediary Stats."
@@ -119,6 +122,7 @@ def truncate(
     overwrite: bool | None = False,
     shuffle_seed: int | None = None,
     shuffle_buffer_size: int | None = None,
+    skip_examples: int | None = None,
     checkpoint_every_n_examples: int = 10_000,
 ):
     """
@@ -155,7 +159,7 @@ def truncate(
     if not checkpoint:
         state = {
             "processed_urls": [],
-            "last_saved_example_idx": 0,
+            "last_saved_example_idx": None,
             "stats": {
                 "language": language,
                 "split": split,
@@ -190,9 +194,14 @@ def truncate(
     with tf.io.TFRecordWriter(str(target_file_name)) as file_writer, tqdm(
         total=tokens_to_process
     ) as pbar:
-        
-        if state["last_saved_example_idx"] > 0:
-            original_dataset.skip(state["last_saved_example_idx"] + 1)
+
+        # If provided, skip the first `skip_examples` examples + 1
+        if skip_examples:
+            original_dataset = original_dataset.skip(skip_examples + 1)
+
+        # Then, skip the number of examples already in the checkpoint
+        if state["last_saved_example_idx"]:
+            original_dataset = original_dataset.skip(state["last_saved_example_idx"] + 1)
             pbar.update(stats["tokens"])
 
         for idx, example in enumerate(original_dataset):
@@ -220,6 +229,9 @@ def truncate(
                 # TODO Come up with a better way for that
                 in_bytes = in_bytes[:remaining]
                 raw_text = vocabulary.decode(in_bytes)
+
+            if idx % 100 == 0:
+                print(raw_text)
 
             record_buffer.append(
                 tf.train.Example(
@@ -281,6 +293,7 @@ def generate_datasets(
     overwrite: bool,
     shuffle_seed: int | None = None,
     shuffle_buffer_size: int | None = None,
+    skip_examples: int | None = None,
     sizes: Dict[str, int] | None = None,
 ):
     """
@@ -306,6 +319,7 @@ def generate_datasets(
             overwrite=overwrite,
             shuffle_seed=shuffle_seed,
             shuffle_buffer_size=shuffle_buffer_size,
+            skip_examples=skip_examples,
         )
 
     if validation_pct is not None:
@@ -334,6 +348,12 @@ if __name__ == "__main__":
     parser.add_argument("--shuffle_seed", type=int, default=None)
     parser.add_argument("--shuffle_buffer_size", type=int, default=None)
     parser.add_argument(
+        "--skip_examples",
+        type=int,
+        default=None,
+        help="How many example to skip in the dataset before adding examples to the final file.",
+    )
+    parser.add_argument(
         "--sizes", type=str, help="A dictionary with <size_name, size> in tokens."
     )
 
@@ -348,5 +368,6 @@ if __name__ == "__main__":
         args.overwrite,
         args.shuffle_seed,
         args.shuffle_buffer_size,
+        args.skip_examples,
         sizes_to_generate,
     )
