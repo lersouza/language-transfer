@@ -2,7 +2,7 @@ LANGUAGE=${1}
 
 PROJECT_DIR="./lang_transfer/"
 T5X_DIR="./t5x"  # directory where the t5x is cloned.
-BUCKET_NAME=${BUCKET_NAME:="lang_agnostic_europe"}
+BUCKET_NAME=${BUCKET_NAME:="lang_agnostic"}
 
 DATA_SIZE="6B"
 MODEL_DIR="gs://${BUCKET_NAME}/models/pretrained/pretrained_${LANGUAGE}_small_${DATA_SIZE}/"
