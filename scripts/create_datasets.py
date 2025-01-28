@@ -230,9 +230,6 @@ def truncate(
                 in_bytes = in_bytes[:remaining]
                 raw_text = vocabulary.decode(in_bytes)
 
-            if idx % 100 == 0:
-                print(raw_text)
-
             record_buffer.append(
                 tf.train.Example(
                     features=tf.train.Features(
