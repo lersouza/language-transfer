@@ -1,5 +1,6 @@
-# Script arguments
+#!/bin/bash
 
+# Script arguments
 LANGUAGE=${1}
 MODEL_SIZE=${2}
 PRETRAINED_LANGUAGE=${3}

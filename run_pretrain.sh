@@ -1,3 +1,5 @@
+#!/bin/bash
+
 LANGUAGE=${1}
 
 PROJECT_DIR="./lang_transfer/"

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Script arguments
 
 PRETRAINED_LANGUAGE=${1}
