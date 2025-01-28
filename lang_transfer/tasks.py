@@ -215,8 +215,8 @@ for synthetic_language in ["nonsense", "hierarchical"]:
 
 
 # ---------------- English for Train on a different distribution --------------#
-_register_gcs_task("env2", "6B")
-_register_gcs_val_task("env2", "en")
+_register_gcs_task("en_v2", "6B")
+_register_gcs_val_task("en_v2", "en")
 
 # ---------------- Finetune on ASSIN 2 -----------------
 
