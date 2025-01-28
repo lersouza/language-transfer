@@ -36,7 +36,7 @@ BASE_DATA_COLUMNS = {
 
 DATASET_STATS_COLUMNS = {
     "size_name": "data_size",
-    "language": "language",
+    "language_split": "language",
     "split": "data_split",
     "examples": "num_of_examples",
     "original_text_length": "original_text_length",
@@ -110,11 +110,11 @@ def preprocess_stats_file(dataset_stats_data: pd.DataFrame) -> pd.DataFrame:
     # So, we discard validation data
     dataset_stats_data = dataset_stats_data[dataset_stats_data.data_split == "train"]
 
-    # Setup and index for joining
-    dataset_stats_data = dataset_stats_data.set_index(["language", "data_size"])
-
     # Remove duplicates, since we may have info of a dataset in multiple buckets.
     dataset_stats_data = dataset_stats_data.drop_duplicates()
+
+    # Setup and index for joining
+    dataset_stats_data = dataset_stats_data.set_index(["language", "data_size"])
 
     return dataset_stats_data
 

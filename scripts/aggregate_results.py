@@ -28,7 +28,7 @@ ROOT_FOLDER = Path(__file__).parent.parent.resolve()
 BUCKETS = ["lang_agnostic", "lang_agnostic_europe"]
 
 # Some experiment metadata can be extracted from file names
-EXP_PATTERN = r"\.*\/(?P<filename>(?P<initialization>(?P<init_language>\w{2,7})(_from_(?P<init_data_size>[0-9]+[MB]+)(_(?P<init_train_epochs>\d+)epochs){0,1}){0,1})_(?P<target>\w{2})_(?P<model_size>(small|gadre_1.4B|550M))_(?P<data_size>[0-9]+[MB]+)(_(?P<finetune_epochs>\d+)epoch[s]*){0,1})\/$"
+EXP_PATTERN = r"\.*\/(?P<filename>(?P<initialization>(?P<init_language>\w{2,8})(_from_(?P<init_data_size>[0-9]+[MB]+)(_(?P<init_train_epochs>\d+)epochs){0,1}){0,1})_(?P<target>\w{2})_(?P<model_size>(small|gadre_1.4B|550M))_(?P<data_size>[0-9]+[MB]+)(_(?P<finetune_epochs>\d+)epoch[s]*){0,1})\/$"
 
 # We remove some experiments based on patterns over metadata
 EXPERIMENTS_TO_REMOVE = [
@@ -212,12 +212,14 @@ def process_dataset_stats(dataset_stats_files):
     Process a list of dataset stats files and return a dictionary with all attributes in those files.
     """
     dataset_info = defaultdict(list)
-    dataset_stat_file_regex = r"(?P<origin>[\w\d]+)_(?P<language_split>[\w]{2})_(?P<train_split>[\w]+)_(?P<size_name>[\w\d]+)"
+    dataset_stat_file_regex = r"(?P<origin>[\w\d]+)_(?P<language_split>[\w]{2,8})_(?P<train_split>[\w]+)_(?P<size_name>[\w\d]+)"
 
     for ds_stat in dataset_stats_files:
         with open(ds_stat, "r", encoding="utf-8") as stat_file:
             file_ms_name = os.path.split(str(stat_file))[1].split(".")[0]
             file_name_metadata = re.search(dataset_stat_file_regex, file_ms_name)
+
+            LOGGER.debug("Processing stats: %s", file_ms_name)
 
             for k, v in file_name_metadata.groupdict().items():
                 dataset_info[k].append(v)
@@ -225,6 +227,15 @@ def process_dataset_stats(dataset_stats_files):
             for line in stat_file:
                 k, v = line.split(":")
                 dataset_info[k.strip()].append(v.strip())
+
+    LOGGER.debug("Dataset information stats:")
+
+    for k, v in dataset_info.items():
+        LOGGER.debug("%s (%d)", k, len(v))
+
+    # Some datasets do not have validation_percentage.
+    # As this info is not important at this time, we remove it.
+    dataset_info.pop("validation_percentage")
 
     return dataset_info
 

@@ -17,6 +17,7 @@ import pandas as pd
 from pathlib import Path
 
 
+# The name of all distances calculated by this module.
 DEFAULT_DISTANCES = [
     "syntactic",
     "geographic",
@@ -25,6 +26,19 @@ DEFAULT_DISTANCES = [
     "inventory",
     "featural",
 ]
+
+
+# List with all synthatic language names
+SYNTHETIC_LANGUAGES = ["nonsense"]
+
+
+# Mapping to resolve language variants to its original names.
+LANGUAGE_MAPPING = {"en_v2": "en"}
+
+
+# The Maximum distances between 2 languages.
+MAXIMUM_DISTANCE = 1.0
+
 
 # Imported from http://www-01.sil.org/iso639-3/download.asp on July 12, 2014
 ISO_639_1_TO_3 = {
@@ -216,8 +230,17 @@ ISO_639_1_TO_3 = {
 
 
 def compute_distance_for_pair(row: pd.Series, distance_name: str):
-    lang_a = ISO_639_1_TO_3.get(row["init_language"])
-    lang_b = ISO_639_1_TO_3.get(row["target"])
+    source, target = row[["init_language", "target"]].tolist()
+
+    # Handle cases where the model is initialized with a Synthetic language
+    if source in SYNTHETIC_LANGUAGES:
+        return MAXIMUM_DISTANCE
+
+    source = LANGUAGE_MAPPING.get(source, source)
+    target = LANGUAGE_MAPPING.get(target, target)
+
+    lang_a = ISO_639_1_TO_3.get(source)
+    lang_b = ISO_639_1_TO_3.get(target)
 
     return l2v.distance(distance_name, lang_a, lang_b)
 
