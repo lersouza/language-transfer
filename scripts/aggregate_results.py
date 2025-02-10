@@ -40,6 +40,7 @@ EXPERIMENTS_TO_REMOVE = [
     },  # Results are inconsitent. Experiment was made again in Europe Bucket.
     {"target": "es", "data_size": "0M"},
     {"target": "pt"},
+    {"init_language": "env2"},
     {"url_metadata": "no"}
 ]
 
