@@ -151,10 +151,12 @@ def combine_with_dataset_stats(
     tidy_data = base_data.join(
         stats_data, on=["source", "source_data_size"], how="inner", rsuffix="_source"
     )
+    LOGGER.info("Adding dataset information from source language. Final size is %d", len(tidy_data))
 
     tidy_data = tidy_data.join(
         stats_data, on=["target", "target_data_size"], how="inner", rsuffix="_target"
     )
+    LOGGER.info("Adding dataset information from target language. Final size is %d", len(tidy_data))
 
     # We also ackowledge the difference between source and target token2text_rate
     tidy_data["token2text_rate_square_difference"] = (
@@ -218,10 +220,14 @@ def build_tidy(
     contamination_data = preprocess_contamination_data(contamination_data)
 
     tidy_data = combine_with_dataset_stats(base_data, dataset_stats_data)
+    LOGGER.info("Base data combined with dataset information. Final size is %d", len(tidy_data))
+
     tidy_data = combine_with_language_contamination(tidy_data, contamination_data)
+    LOGGER.info("Base data + Dataset info combined with lang. contamination info. Final size is %d", len(tidy_data))
 
     LOGGER.info("Finished building tidy dataset. Final size is %d", len(tidy_data))
 
+    tidy_data.drop_duplicates()
     tidy_data.to_csv(output_file_path)
 
 
