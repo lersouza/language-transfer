@@ -50,7 +50,7 @@ for (( i=0; i<$RUNS; i++ )); do
       continue
     fi
     
-    echo "Running experiment with size ${DATA_SIZE}, # of train steps ${TRAIN_STEPS}, #warmup ${WARMUP}. Bucket is ${BUCKET_NAME}" ;
+    echo "Running experiment with size ${DATA_SIZE}, # of train steps ${TRAIN_STEPS}, #warmup ${WARMUP_STEPS}. Bucket is ${BUCKET_NAME}" ;
 
     python3 ${T5X_DIR}/t5x/train.py \
         --gin_search_paths=${PROJECT_DIR} \
