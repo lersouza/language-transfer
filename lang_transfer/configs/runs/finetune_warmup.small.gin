@@ -1,0 +1,57 @@
+from __gin__ import dynamic_registration
+import __main__ as train_script
+
+from t5x import utils
+from t5x import trainer
+
+from lang_transfer import tasks
+
+include "t5x/configs/runs/pretrain.gin"
+include "lang_transfer/configs/models/70M.gin"
+
+# REQUIRED variables
+EVAL_PERIOD = %gin.REQUIRED
+TRAIN_STEPS = %gin.REQUIRED
+WARMUP_STEPS = %gin.REQUIRED
+
+# PREDEFINED variables
+WARMUP_STEPS = 0
+BATCH_SIZE = 512
+MICRO_BATCHES = 4
+TASK_FEATURE_LENGTHS={"targets":1024}
+EVAL_STEPS = 100 # to run the validation over aprox 60010004 (1% of 6B size) tokens 
+PRETRAINED_MODEL_PATH = []  # From scratch
+VAL_MIXTURE_OR_TASK_NAME = %MIXTURE_OR_TASK_NAME
+
+DROPOUT_RATE = 0.0
+RANDOM_SEED = 42
+
+# DATASET overrides
+train/utils.DatasetConfig:
+  seed = %RANDOM_SEED
+
+train_eval/utils.DatasetConfig:
+  mixture_or_task_name = %VAL_MIXTURE_OR_TASK_NAME
+
+# TRAIN script overrides
+train_script.train.eval_steps = %EVAL_STEPS
+train_script.train.eval_period = %EVAL_PERIOD
+
+# MICRO-BATCHES & LR SCHEDULER configuration
+trainer.Trainer:
+  num_microbatches = %MICRO_BATCHES
+  learning_rate_fn = @optax.warmup_constant_schedule()
+
+optax.warmup_constant_schedule:
+  init_value = 0.0
+  peak_value = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
+  warmup_steps = %WARMUP_STEPS
+
+# PRETRAINED selection
+utils.RestoreCheckpointConfig:
+    path = %PRETRAINED_MODEL_PATH
+    mode = 'specific'
+    dtype = 'float32'
+
+utils.SaveCheckpointConfig:
+  period = %EVAL_PERIOD
