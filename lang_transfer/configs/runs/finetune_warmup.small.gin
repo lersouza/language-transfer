@@ -42,12 +42,13 @@ train_script.train.eval_period = %EVAL_PERIOD
 # MICRO-BATCHES & LR SCHEDULER configuration
 trainer.Trainer:
   num_microbatches = %MICRO_BATCHES
-  learning_rate_fn = @optax.warmup_constant_schedule()
+  learning_rate_fn = @optax.polynomial_schedule()
 
-optax.warmup_constant_schedule:
+optax.polynomial_schedule:
   init_value = 0.0
   peak_value = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
-  warmup_steps = %WARMUP_STEPS
+  power = 1.0
+  transition_steps = %WARMUP_STEPS
 
 # PRETRAINED selection
 utils.RestoreCheckpointConfig:
