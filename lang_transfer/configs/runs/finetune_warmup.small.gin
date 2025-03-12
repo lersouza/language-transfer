@@ -46,7 +46,7 @@ trainer.Trainer:
 
 optax.polynomial_schedule:
   init_value = 0.0
-  peak_value = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
+  end_value = 2e-5  # We finetune with a constant LR that matches the last LR from pretrain
   power = 1.0
   transition_steps = %WARMUP_STEPS
 
