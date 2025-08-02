@@ -33,7 +33,7 @@ SYNTHETIC_LANGUAGES = ["nonsense"]
 
 
 # Mapping to resolve language variants to its original names.
-LANGUAGE_MAPPING = {"en2": "en"}
+LANGUAGE_MAPPING = {"en2": "en", "en3": "en", "ar2": "ar", "zh2": "zh"}
 
 
 # The Maximum distances between 2 languages.
