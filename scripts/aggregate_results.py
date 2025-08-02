@@ -111,7 +111,8 @@ def download_dataset_stats(target_dir):
         )
 
         for stats_file in files:
-            target_path = os.path.join(target_dir, os.path.split(stats_file.name)[1])
+            target_file_name = f"{bucket}_{os.path.split(stats_file.name)[1]}"
+            target_path = os.path.join(target_dir, target_file_name)
             stats_file.download_to_filename(target_path)
 
             yield target_path
@@ -213,7 +214,7 @@ def process_dataset_stats(dataset_stats_files):
     Process a list of dataset stats files and return a dictionary with all attributes in those files.
     """
     dataset_info = defaultdict(list)
-    dataset_stat_file_regex = r"(?P<origin>[\w\d]+)_(?P<language_split>[\w]{2,8})_(?P<train_split>[\w]+)_(?P<size_name>[\w\d]+)"
+    dataset_stat_file_regex = r"(?P<bucket>[\w]+)_(?P<origin>[\w\d]+)_(?P<language_split>[\w]{2,8})_(?P<train_split>[\w]+)_(?P<size_name>[\w\d]+)"
 
     for ds_stat in dataset_stats_files:
         with open(ds_stat, "r", encoding="utf-8") as stat_file:

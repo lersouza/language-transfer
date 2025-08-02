@@ -21,7 +21,7 @@ BASE_DATA_COLUMNS = {
     "data_effective": "data_effective",
     "data_transfer": "data_transfer",
     "fraction_of_effective_dt": "fraction_of_effective_dt",
-    "cross_lingual": "cross_lingual",
+    "experiment_type": "experiment_type",
     "data_transfer_mb": "data_transfer_formatted",
     "data_finetune_mb": "data_finetune_formatted",
     "data_effective_mb": "data_effective_formatted",
@@ -31,6 +31,8 @@ BASE_DATA_COLUMNS = {
     "genetic_distance": "genetic_distance",
     "inventory_distance": "inventory_distance",
     "featural_distance": "featural_distance",
+    "source_data_size_as_int": "init_data_size_int",
+    "target_data_size_as_int": "data_size_int",
 }
 
 
@@ -80,19 +82,6 @@ def read_contamination_data(lang_contamination_dir: Path) -> pd.DataFrame:
 
 
 def preprocess_base_data(base_data: pd.DataFrame) -> pd.DataFrame:
-    base_data.loc[base_data["init_train_epochs"].isna(), "init_train_epochs"] = 1.0
-    base_data.loc[base_data["init_data_size"].isna(), "init_data_size"] = "6B"
-
-    # Ensure Scratch Models do not have init params
-    base_data.loc[base_data["init_language"] == "scratch", "init_train_epochs"] = 0.0
-    base_data.loc[base_data["init_language"] == "scratch", "init_data_size"] = "0M"
-
-    mask1 = (base_data["finetune_epochs"].isna()) & (base_data["data_size"] != "6B")
-    mask2 = (base_data["finetune_epochs"].isna()) & (base_data["data_size"] == "6B")
-
-    base_data.loc[mask1, "finetune_epochs"] = 10.0
-    base_data.loc[mask2, "finetune_epochs"] = 3.0
-
     # Select desired columns and adjust column names
     base_data = base_data[list(BASE_DATA_COLUMNS.keys())].rename(
         columns=BASE_DATA_COLUMNS
@@ -195,6 +184,7 @@ def combine_with_language_contamination(
     ] = 0
 
     return tidy_data
+
 
 
 def build_tidy(

@@ -93,7 +93,6 @@ def postprocess(results: pd.DataFrame) -> pd.DataFrame:
     Apply post-processing routines to the dataset after metrics calculation.
     Mostly add formatted and indicator columns.
     """
-    results.loc[:, "cross_lingual"] = results["init_language"] != results["target"]
     results.loc[:, "data_transfer_mb"] = results["data_transfer"].map(format_in_mega)
     results.loc[:, "data_finetune_mb"] = results["size"].map(format_in_mega)
     results.loc[:, "data_effective_mb"] = results["data_effective"].map(format_in_mega)
@@ -131,13 +130,17 @@ def compute_data_effective(
         .reset_index()
     )
 
-    x_values = scratch_related["size"]
-    y_values = scratch_related["perplexity"]
-    y_value_dotted = experiment_row["perplexity"]
+
+    y_values = np.log(scratch_related["size"].to_numpy())
+    x_values = scratch_related["perplexity"].to_numpy()
+    estimation_x_point = experiment_row["perplexity"]
+
+    order = x_values.argsort(axis=0)
 
     # Estimate the Data Effective through interpolation.
     # For more information, see: https://aclanthology.org/2024.naacl-long.418.pdf
-    estimated_de = np.interp(x=y_value_dotted, xp=y_values, fp=x_values, period=10)
+    estimated_de = np.interp(x=estimation_x_point, xp=x_values[order], fp=y_values[order])
+    estimated_de = np.exp(estimated_de)
 
     return estimated_de
 
@@ -172,6 +175,12 @@ def calculate_data_transfer(results_file: Path, output_file: Path):
 
     pretrained = postprocess(pretrained)
     pretrained.to_csv(output_file)
+
+    # Also save scratch_data for reference
+    scratch = scratch.reset_index()
+    output_scratch_file = output_file.parent / "scratch_data.csv"
+
+    scratch.to_csv(output_scratch_file)
 
 
 if __name__ == "__main__":
