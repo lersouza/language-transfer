@@ -219,6 +219,10 @@ for lang in ["en", "ar", "zh"]:
     _register_gcs_task(f"{lang}2", "6B")
     _register_gcs_val_task(f"{lang}2", lang)
 
+_register_gcs_task(f"en3", "6B")
+_register_gcs_val_task(f"en3", "en")
+
+
 # ---------------- Finetune on ASSIN 2 -----------------
 
 seqio.TaskRegistry.add(
