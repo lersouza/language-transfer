@@ -30,6 +30,9 @@ BUCKETS = ["lang_agnostic", "lang_agnostic_europe"]
 # Some experiment metadata can be extracted from file names
 EXP_PATTERN = r"\.*\/(?P<filename>(?P<initialization>(?P<init_language>\w{2,8})(_from_(?P<init_data_size>[0-9]+[MB]+)(_(?P<init_train_epochs>\d+)epochs){0,1}){0,1})_(?P<target>\w{2})_(?P<model_size>(small|gadre_1.4B|550M))_(?P<data_size>[0-9]+[MB]+)(_(?P<finetune_epochs>\d+)epoch[s]*){0,1})\/$"
 
+# Some pretrain metadata can be extracted from file names
+PRETRAIN_PATTERN = r"\.*\/(?P<filename>pretrained_(?P<source>[\w]+(v[\d])*)_(?P<model_size>\w+)_(?P<data_size>\w+))\/$"
+
 # We remove some experiments based on patterns over metadata
 EXPERIMENTS_TO_REMOVE = [
     {
@@ -41,8 +44,11 @@ EXPERIMENTS_TO_REMOVE = [
     {"target": "es", "data_size": "0M"},
     {"target": "pt"},
     {"init_language": "env2"},
-    {"url_metadata": "no"}
+    {"url_metadata": "no"},
 ]
+
+# We remove some pretrainings based on patterns over metadata
+PRETRAIN_TO_REMOVE = [{"source": "en_v2"}, {"source": "env2"}, {"url_metadata": "no"}]
 
 # The metric of interest for LOSS.
 LOSS_METRIC = "loss_per_all_target_tokens"
@@ -55,13 +61,13 @@ LOGGER = logging.getLogger(__file__)
 
 
 def extract_metadata_from_name(
-    experiment_path: str, bucket_name: str
+    experiment_path: str, bucket_name: str, pattern: str = EXP_PATTERN
 ) -> Dict[str, str]:
     """
     Extracts metadata information from URL.
     If no metadata could be extracted, property "url_metadata" will be "no".
     """
-    matched = re.search(EXP_PATTERN, experiment_path)
+    matched = re.search(pattern, experiment_path)
     base_metadata = {"url": experiment_path, "bucket": bucket_name}
 
     if matched:
@@ -70,22 +76,20 @@ def extract_metadata_from_name(
     return {**base_metadata, "url_metadata": "no"}
 
 
-def list_experiments():
+def list_experiments(base_path: str = "models/finetune/", pattern: str = EXP_PATTERN):
     """
     List all avaliable experiments in all `BUCKETS`.
     """
     experiments_in_storage = []
 
     for bucket in BUCKETS:
-        storage_response = client.list_blobs(
-            bucket, prefix="models/finetune/", delimiter="/"
-        )
+        storage_response = client.list_blobs(bucket, prefix=base_path, delimiter="/")
         _, prefixes = all(storage_response), list(
             storage_response.prefixes
         )  # Force request execution
 
         experiments_in_storage.extend(
-            [extract_metadata_from_name(i, bucket) for i in prefixes]
+            [extract_metadata_from_name(i, bucket, pattern) for i in prefixes]
         )
 
     return experiments_in_storage
@@ -118,23 +122,32 @@ def download_dataset_stats(target_dir):
             yield target_path
 
 
-def should_take_out(exp):
+def should_take_out(exp, filter):
     """
-    Determined whether an experiments should be ignored based on  `EXPERIMENTS_TO_REMOVE`.
+    Determined whether an experiments should be ignored based on `filter`(default: `EXPERIMENTS_TO_REMOVE`).
     Returns `True` if it should be ignored and `False` otherwise.
     """
-    for r in EXPERIMENTS_TO_REMOVE:
+    filter = filter or EXPERIMENTS_TO_REMOVE
+
+    for r in filter:
         if all([k in exp and exp[k] == r[k] for k in r.keys()]):
             return True
     return False
 
 
-def retrieve_results(experiment, target_dir):
+def retrieve_results(experiment, target_dir, metrics_dir: str = "training_eval", exp_language_key: str = "target"):
     """
     For any given (existing) `experiment`, retrieve all its results.
     The results are saved in `target_dir` under the name it was found in the bucket.
+
+    Parameters:
+
+    * experiment: a dictionary with metadata about the experiment
+    * target_dir: the target directory to save retrieved experiment data
+    * metrics_dir: the tensorboard folder to look for (default is 'training_eval')
+    * exp_language_key: the experiment property that represents the language task to look for in `metrics_dir`.
     """
-    prefix = f"{experiment['url']}training_eval/langagnostic.{experiment['target']}.validation/events.out.tfevents"
+    prefix = f"{experiment['url']}{metrics_dir}/langagnostic.{experiment[exp_language_key]}.validation/events.out.tfevents"
     files_it = client.list_blobs(experiment["bucket"], prefix=prefix)
 
     local_file_paths = []
@@ -184,14 +197,16 @@ def process_experiment_results(experiment, local_files):
 
     final_metrics = {
         "loss": all_losses[LOSS_METRIC][best_metrics_idx],
+        "final_loss": all_losses[LOSS_METRIC][-1],
         "step": all_losses["steps"][best_metrics_idx],
+        "final_step": all_losses["steps"][-1],
         **experiment,
     }
 
     return final_metrics
 
 
-def aggregate_results(experiments):
+def aggregate_results(experiments, metrics_dir: str = "training_eval", exp_language_key: str = "target"):
     """
     Aggregates the results of all experiments and return them as a dictionary,
     where each key represents a column for a list of values.
@@ -200,7 +215,7 @@ def aggregate_results(experiments):
 
     with tempfile.TemporaryDirectory() as tempdir:
         for exp in experiments:
-            local = retrieve_results(exp, tempdir)
+            local = retrieve_results(exp, tempdir, metrics_dir, exp_language_key)
             exp_metrics = process_experiment_results(exp, local)
 
             for metric, value in exp_metrics.items():
@@ -242,22 +257,32 @@ def process_dataset_stats(dataset_stats_files):
     return dataset_info
 
 
-def retrieve_finetune_results():
+def retrieve_run_results(
+    base_path: str = "models/finetune/",
+    pattern: str = EXP_PATTERN,
+    filter: Dict[str, Dict] = None,
+    metrics_dir: str = "training_eval",
+    exp_language_key: str = "target",
+):
     """
     Retrieve results from finetune experiments in GCS and return a Data Frame consolidating its data.
     """
-    all_experiments = list_experiments()
-    filtered_experiments = [a for a in all_experiments if not should_take_out(a)]
+    filter = filter or EXPERIMENTS_TO_REMOVE
+
+    all_experiments = list_experiments(base_path, pattern)
+    filtered_experiments = [
+        a for a in all_experiments if not should_take_out(a, filter)
+    ]
 
     # Log ignored experiments for troubleshooting purposes.
-    log_ignored_experiments([a for a in all_experiments if should_take_out(a)])
+    log_ignored_experiments([a for a in all_experiments if should_take_out(a, filter)])
 
     LOGGER.info(
         f"Retrieved {len(all_experiments)}. After filtering:"
         f" {len(filtered_experiments)}"
     )
 
-    all_experiment_results = aggregate_results(filtered_experiments)
+    all_experiment_results = aggregate_results(filtered_experiments, metrics_dir, exp_language_key)
     return pd.DataFrame.from_dict(all_experiment_results)
 
 
@@ -276,7 +301,9 @@ def retrieve_pretrain_results():
     Retrieve results from pretraining experiments with source languages in GCS
     and return a Data Frame consolidating its data.
     """
-    pass
+    return retrieve_run_results(
+        "models/pretrained/", PRETRAIN_PATTERN, PRETRAIN_TO_REMOVE, exp_language_key="source"
+    )
 
 
 def export_experiments_to_csv(info_to_retrieve: str):
@@ -305,7 +332,7 @@ def export_experiments_to_csv(info_to_retrieve: str):
 
 # Possible results to retrieve
 AVAILABLE_RESULTS = {
-    "finetune": retrieve_finetune_results,
+    "finetune": retrieve_run_results,
     "datasets": retrieve_dataset_stats,
     "pretrain": retrieve_pretrain_results,
 }
