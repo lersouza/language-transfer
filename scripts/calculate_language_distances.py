@@ -233,7 +233,7 @@ def compute_distance_for_pair(row: pd.Series, distance_name: str):
     source, target = row[["init_language", "target"]].tolist()
 
     # Handle cases where the model is initialized with a Synthetic language
-    if source in SYNTHETIC_LANGUAGES:
+    if source in SYNTHETIC_LANGUAGES or source == "scratch":
         return MAXIMUM_DISTANCE
 
     source = LANGUAGE_MAPPING.get(source, source)
