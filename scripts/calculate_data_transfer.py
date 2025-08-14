@@ -63,27 +63,13 @@ def format_in_mega(v):
     return "{:,.2f} MB".format(v / 1024 / 1024)
 
 
-def apply_defaults(raw_data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Apply default values for required fields.
-    """
-    raw_data.loc[raw_data["model_size"].isna(), "model_size"] = "small"
-
-
 def preprocess(raw_data: pd.DataFrame) -> pd.DataFrame:
     """
     Perform preprocessing routines to a raw dataset
     in order to be able to calculate the metrics D_e and D_t.
     """
-    # Apply Defaults
-    apply_defaults(raw_data)
-
-    # Compute Columns
-    raw_data.loc[:, "size"] = raw_data["data_size"].apply(convert_size_to_number)
-    raw_data.loc[:, "perplexity"] = np.exp(raw_data["loss"])
-
     # Remove zero-shot experiments. We'll not consider them at this time
-    raw_data = raw_data[raw_data["size"] > 0]
+    raw_data = raw_data[raw_data["data_size_int"] > 0]
 
     return raw_data
 
@@ -92,9 +78,10 @@ def postprocess(results: pd.DataFrame) -> pd.DataFrame:
     """
     Apply post-processing routines to the dataset after metrics calculation.
     Mostly add formatted and indicator columns.
-    """
+    """ 
+    # Formatting values
     results.loc[:, "data_transfer_mb"] = results["data_transfer"].map(format_in_mega)
-    results.loc[:, "data_finetune_mb"] = results["size"].map(format_in_mega)
+    results.loc[:, "data_finetune_mb"] = results["data_size_int"].map(format_in_mega)
     results.loc[:, "data_effective_mb"] = results["data_effective"].map(format_in_mega)
 
     return results
@@ -124,16 +111,18 @@ def compute_data_effective(
     """
     index = (experiment_row["model_size"], experiment_row["target"])
     scratch_related = (
-        scratch_data.loc[index, ["size", "perplexity"]]
-        .groupby("size")
+        scratch_data.loc[index, ["data_size_int", "loss"]]
+        .groupby("data_size_int")
         .min()
         .reset_index()
     )
 
 
-    y_values = np.log(scratch_related["size"].to_numpy())
-    x_values = scratch_related["perplexity"].to_numpy()
-    estimation_x_point = experiment_row["perplexity"]
+    # Here, to reduce estimation errors, I consider the log(data_size) and the loss (which would be the log of the perplexity).
+    # After extimation, I just exponentiate the result to get the Data Effective.
+    y_values = np.log(scratch_related["data_size_int"].to_numpy())
+    x_values = scratch_related["loss"].to_numpy()
+    estimation_x_point = experiment_row["loss"]
 
     order = x_values.argsort(axis=0)
 
@@ -168,10 +157,8 @@ def calculate_data_transfer(results_file: Path, output_file: Path):
     compute_de = partial(compute_data_effective, scratch_data=scratch)
     pretrained["data_effective"] = pretrained.apply(compute_de, axis=1)
 
-    pretrained["data_transfer"] = pretrained["data_effective"] - pretrained["size"]
-    pretrained["fraction_of_effective_dt"] = np.maximum(
-        pretrained["data_transfer"] / pretrained["data_effective"], 0
-    )
+    pretrained["data_transfer"] = pretrained["data_effective"] - pretrained["data_size_int"]
+    pretrained["fraction_of_effective_dt"] = pretrained["data_transfer"] / pretrained["data_effective"]
 
     pretrained = postprocess(pretrained)
     pretrained.to_csv(output_file)
