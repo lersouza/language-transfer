@@ -9,6 +9,7 @@ LOGGER = logging.getLogger("build_tidy_dataset")
 
 
 BASE_DATA_COLUMNS = {
+    "bucket": "bucket",
     "model_size": "model_size",
     "init_language": "source",
     "init_data_size": "source_data_size",
@@ -16,7 +17,6 @@ BASE_DATA_COLUMNS = {
     "target": "target",
     "data_size": "target_data_size",
     "finetune_epochs": "target_train_epochs",
-    "size": "target_data_size_as_int",
     "perplexity": "perplexity",
     "data_effective": "data_effective",
     "data_transfer": "data_transfer",
@@ -31,8 +31,8 @@ BASE_DATA_COLUMNS = {
     "genetic_distance": "genetic_distance",
     "inventory_distance": "inventory_distance",
     "featural_distance": "featural_distance",
-    "source_data_size_as_int": "init_data_size_int",
-    "target_data_size_as_int": "data_size_int",
+    "init_data_size_int": "source_data_size_as_int",
+    "data_size_int": "target_data_size_as_int",
 }
 
 
@@ -90,6 +90,12 @@ def preprocess_base_data(base_data: pd.DataFrame) -> pd.DataFrame:
     return base_data
 
 
+def preprocess_pretrain_data(pretrain_data: pd.DataFrame) -> pd.DataFrame:
+    pretrain_data = pretrain_data.set_index(["bucket", "source", "model_size", "data_size"])
+
+    return pretrain_data
+
+
 def preprocess_stats_file(dataset_stats_data: pd.DataFrame) -> pd.DataFrame:
     dataset_stats_data = dataset_stats_data[list(DATASET_STATS_COLUMNS.keys())].rename(
         columns=DATASET_STATS_COLUMNS
@@ -132,6 +138,18 @@ def preprocess_contamination_data(contamination_data: pd.DataFrame) -> pd.DataFr
     )
 
     return contamination_data.drop(columns=["detected_language_label"])
+
+
+def combine_with_pretrain(
+    base_data: pd.DataFrame, pretrain_data: pd.DataFrame
+) -> pd.DataFrame:
+    tidy_data = base_data.join(
+        pretrain_data[["loss", "final_loss"]], on=["bucket", "source", "model_size", "source_data_size"], how="left", rsuffix="_pretrain"
+    )
+
+    tidy_data = tidy_data.rename(columns={"loss": "pretrain_best_loss", "final_loss": "pretrain_final_loss"})
+
+    return tidy_data
 
 
 def combine_with_dataset_stats(
@@ -190,10 +208,12 @@ def combine_with_language_contamination(
 def build_tidy(
     base_file: Path,
     dataset_stats_file: Path,
+    pretrain_file: Path,
     lang_contamination_dir: Path,
     output_file_path: Path,
 ):
     base_data: pd.DataFrame = pd.read_csv(base_file)
+    pretrain_data: pd.DataFrame = pd.read_csv(pretrain_file)
     dataset_stats_data = pd.read_csv(dataset_stats_file)
     contamination_data = read_contamination_data(lang_contamination_dir)
 
@@ -206,10 +226,15 @@ def build_tidy(
     )
 
     base_data = preprocess_base_data(base_data)
+    pretrain_data = preprocess_pretrain_data(pretrain_data)
     dataset_stats_data = preprocess_stats_file(dataset_stats_data)
     contamination_data = preprocess_contamination_data(contamination_data)
 
-    tidy_data = combine_with_dataset_stats(base_data, dataset_stats_data)
+    tidy_data = combine_with_pretrain(base_data, pretrain_data)
+    LOGGER.info("Base data combined with pretrain information. Final size is %d", len(tidy_data))
+
+
+    tidy_data = combine_with_dataset_stats(tidy_data, dataset_stats_data)
     LOGGER.info("Base data combined with dataset information. Final size is %d", len(tidy_data))
 
     tidy_data = combine_with_language_contamination(tidy_data, contamination_data)
@@ -225,6 +250,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("base_file", type=Path)
+    parser.add_argument("pretrain_file", type=Path)
     parser.add_argument("dataset_stats_file", type=Path)
     parser.add_argument("lang_contamination_dir", type=Path)
 
@@ -237,6 +263,7 @@ if __name__ == "__main__":
     build_tidy(
         args.base_file,
         args.dataset_stats_file,
+        args.pretrain_file,
         args.lang_contamination_dir,
         args.output_file,
     )
