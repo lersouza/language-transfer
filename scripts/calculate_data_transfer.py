@@ -161,13 +161,13 @@ def calculate_data_transfer(results_file: Path, output_file: Path):
     pretrained["fraction_of_effective_dt"] = pretrained["data_transfer"] / pretrained["data_effective"]
 
     pretrained = postprocess(pretrained)
-    pretrained.to_csv(output_file)
+    pretrained.to_csv(output_file, index=False)
 
     # Also save scratch_data for reference
     scratch = scratch.reset_index()
     output_scratch_file = output_file.parent / "scratch_data.csv"
 
-    scratch.to_csv(output_scratch_file)
+    scratch.to_csv(output_scratch_file, index=False)
 
 
 if __name__ == "__main__":
