@@ -1,5 +1,6 @@
 import argparse
 import logging
+import numpy as np
 import pandas as pd
 
 from pathlib import Path
@@ -82,10 +83,14 @@ def read_contamination_data(lang_contamination_dir: Path) -> pd.DataFrame:
 
 
 def preprocess_base_data(base_data: pd.DataFrame) -> pd.DataFrame:
+    # Add the perplexity for each experiment
+    base_data["perplexity"] = np.exp(base_data["loss"])
+
     # Select desired columns and adjust column names
     base_data = base_data[list(BASE_DATA_COLUMNS.keys())].rename(
         columns=BASE_DATA_COLUMNS
     )
+
 
     return base_data
 
