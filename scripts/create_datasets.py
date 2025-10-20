@@ -1,13 +1,11 @@
+
 """
 This script truncates mc4's language subset to a specified number of Byte-level tokens.
 """
-
 import argparse
 import json
 import os
-import pickle
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Counter, Dict, List
 
@@ -46,9 +44,7 @@ def save_stats(target_file_name: Path, stats: Dict[str, Any]):
 
 
 def print_stats(
-    stats: Dict[str, Any],
-    additional_info: Dict[str, Any] | None = None,
-    complete: bool = True,
+    stats: Dict[str, Any], additional_info: Dict[str, Any] = None, complete: bool = True
 ):
     """Print statistics for followup"""
     status_message = "Done truncating." if complete else "Intermediary Stats."
@@ -64,53 +60,6 @@ def print_stats(
     print("=" * 100)
 
 
-def create_checkpoint_file_name(target_file_path: Path | str):
-    return f"{target_file_path}.ckpt"
-
-
-def retrieve_checkpoint(target_file_path: Path | str):
-    checkpoint_path = create_checkpoint_file_name(target_file_path)
-
-    if not os.path.exists(checkpoint_path):
-        return None
-
-    with open(checkpoint_path, "rb") as ckpt_file:
-        return pickle.load(ckpt_file)
-
-
-def save_checkpoint(checkpoint_object, related_file_path):
-    checkpoint_path = create_checkpoint_file_name(related_file_path)
-
-    with open(checkpoint_path, "wb") as ckpt_file:
-        return pickle.dump(checkpoint_object, ckpt_file)
-
-
-def remove_checkpoint(related_file_path):
-    os.remove(create_checkpoint_file_name(related_file_path))
-
-
-def flush_and_checkpoint_if_needed(
-    target_file_name: Path | str,
-    checkpoint_every_n_examples: int,
-    current_idx: int,
-    examples_buffer: List[tf.train.Example],
-    state: Dict[str, Any],
-    record_writer: tf.io.TFRecordWriter,
-    last_saved_key: str = "last_saved_example_idx",
-    force_flush: bool = False,
-):
-    if current_idx % checkpoint_every_n_examples != 0 and not force_flush:
-        return
-
-    for example in examples_buffer:
-        record_writer.write(example.SerializeToString())
-
-    examples_buffer.clear()
-    state[last_saved_key] = current_idx
-
-    save_checkpoint(state, target_file_name)
-
-
 def truncate(
     language: str,
     split: str,
@@ -118,12 +67,9 @@ def truncate(
     keep_full_doc: bool,
     validation_percentage: float,
     output_directory: Path,
-    size_name: str | None = None,
-    overwrite: bool | None = False,
-    shuffle_seed: int | None = None,
-    shuffle_buffer_size: int | None = None,
-    skip_examples: int | None = None,
-    checkpoint_every_n_examples: int = 10_000,
+    size_name: str = None,
+    overwrite: bool = False,
+    skip_examples: int = None,
 ):
     """
     Truncate the specified mC4's `language` subset to a maximum of `max_tokens`
@@ -144,71 +90,42 @@ def truncate(
         / f"mc4_{language}_{split}_{size_name or tokens_to_process}.tfrecord"
     )
 
-    checkpoint = retrieve_checkpoint(target_file_name)
-
-    if checkpoint is None and os.path.exists(target_file_name) and not overwrite:
+    if os.path.exists(target_file_name) and not overwrite:
         print(f"File {target_file_name} already exists. Skipping...")
         return
 
     original_dataset = load_dataset("mc4", language, split=split, streaming=True)
     vocabulary = ByteVocabulary()  # No special tokens are added for ByT5
+    processed_urls = []
+    stats = {
+        "language": language,
+        "split": split,
+        "examples": 0,
+        "original_text_length": 0,
+        "text_length_after_truncation": 0,
+        "tokens": 0,
+        "original_tokens_length": 0,
+        "max_tokens": tokens_to_process,
+        "max_train_tokens": max_train_tokens,
+        "validation_percentage": validation_percentage,
+        "token2text_rate": None,
+        "dropped_text_length": 0,
+        "dropped_tokens_length": 0,
+    }
 
-    if shuffle_buffer_size:
-        original_dataset.shuffle(seed=shuffle_seed, buffer_size=shuffle_buffer_size)
-
-    if not checkpoint:
-        state = {
-            "processed_urls": [],
-            "last_saved_example_idx": None,
-            "stats": {
-                "language": language,
-                "split": split,
-                "examples": 0,
-                "original_text_length": 0,
-                "text_length_after_truncation": 0,
-                "tokens": 0,
-                "original_tokens_length": 0,
-                "max_tokens": tokens_to_process,
-                "max_train_tokens": max_train_tokens,
-                "validation_percentage": validation_percentage,
-                "token2text_rate": None,
-                "dropped_text_length": 0,
-                "dropped_tokens_length": 0,
-            },
-        }
-    else:
-        state = checkpoint
-
-        print(
-            "Restoring checkpoint. Last Processed Example Index:",
-            state["last_saved_example_idx"],
-            "Stats was:",
-        )
-        print_stats(state["stats"])
-
-        os.rename(target_file_name, f"{target_file_name}.{datetime.now().timestamp()}")
-
-    stats = state["stats"]
-    record_buffer = []
+    # Check if examples should be skipped
+    if skip_examples:
+        original_dataset = original_dataset.skip(skip_examples + 1)
+        stats["skip_examples"] = skip_examples
 
     with tf.io.TFRecordWriter(str(target_file_name)) as file_writer, tqdm(
         total=tokens_to_process
     ) as pbar:
-
-        # If provided, skip the first `skip_examples` examples + 1
-        if skip_examples:
-            original_dataset = original_dataset.skip(skip_examples + 1)
-
-        # Then, skip the number of examples already in the checkpoint
-        if state["last_saved_example_idx"]:
-            original_dataset = original_dataset.skip(state["last_saved_example_idx"] + 1)
-            pbar.update(stats["tokens"])
-
-        for idx, example in enumerate(original_dataset):
+        for example in original_dataset:
             raw_text = example["text"]
             in_bytes = vocabulary.encode(raw_text)
 
-            state["processed_urls"].append(example["url"])
+            processed_urls.append(example["url"])
 
             stats["original_text_length"] += len(raw_text)
             stats["original_tokens_length"] += len(in_bytes)
@@ -230,39 +147,21 @@ def truncate(
                 in_bytes = in_bytes[:remaining]
                 raw_text = vocabulary.decode(in_bytes)
 
-            record_buffer.append(
+            file_writer.write(
                 tf.train.Example(
                     features=tf.train.Features(
                         feature={"text": _bytes_feature(raw_text.encode("utf-8"))}
                     )
-                )
+                ).SerializeToString()
             )
 
             stats["text_length_after_truncation"] += len(raw_text)
             stats["examples"] += 1
             stats["tokens"] += len(in_bytes)
 
-            flush_and_checkpoint_if_needed(
-                target_file_name,
-                checkpoint_every_n_examples,
-                idx,
-                record_buffer,
-                state,
-                file_writer,
-            )
-
             pbar.update(len(in_bytes))
 
             if stats["tokens"] >= tokens_to_process:
-                flush_and_checkpoint_if_needed(
-                    target_file_name,
-                    checkpoint_every_n_examples,
-                    idx,
-                    record_buffer,
-                    state,
-                    file_writer,
-                    force_flush=True,
-                )
                 break
 
     stats["token2text_rate"] = stats["tokens"] / stats["text_length_after_truncation"]
@@ -275,11 +174,9 @@ def truncate(
     print_stats(
         stats,
         additional_info={
-            "Top 3 Processed URLS": Counter(state["processed_urls"]).most_common(n=3)
+            "Top 3 Processed URLS": Counter(processed_urls).most_common(n=3)
         },
     )
-
-    remove_checkpoint(target_file_name)
 
 
 def generate_datasets(
@@ -288,10 +185,8 @@ def generate_datasets(
     keep_full_doc: bool,
     output_directory: str,
     overwrite: bool,
-    shuffle_seed: int | None = None,
-    shuffle_buffer_size: int | None = None,
-    skip_examples: int | None = None,
-    sizes: Dict[str, int] | None = None,
+    sizes: Dict[str, int] = None,
+    skip_examples: int = None,
 ):
     """
     Generates train and validation datasets for a given `language`
@@ -314,8 +209,6 @@ def generate_datasets(
             output_directory=output_directory,
             size_name=size_name,
             overwrite=overwrite,
-            shuffle_seed=shuffle_seed,
-            shuffle_buffer_size=shuffle_buffer_size,
             skip_examples=skip_examples,
         )
 
@@ -342,17 +235,10 @@ if __name__ == "__main__":
     parser.add_argument("--keep_full_doc", action="store_true", default=False)
     parser.add_argument("--output_dir", type=Path, default=Path("./"))
     parser.add_argument("--overwrite", action="store_true")
-    parser.add_argument("--shuffle_seed", type=int, default=None)
-    parser.add_argument("--shuffle_buffer_size", type=int, default=None)
-    parser.add_argument(
-        "--skip_examples",
-        type=int,
-        default=None,
-        help="How many example to skip in the dataset before adding examples to the final file.",
-    )
     parser.add_argument(
         "--sizes", type=str, help="A dictionary with <size_name, size> in tokens."
     )
+    parser.add_argument("--skip_examples", type=int, default=None)
 
     args = parser.parse_args()
     sizes_to_generate = None if not args.sizes else json.loads(args.sizes)
@@ -363,8 +249,6 @@ if __name__ == "__main__":
         args.keep_full_doc,
         args.output_dir,
         args.overwrite,
-        args.shuffle_seed,
-        args.shuffle_buffer_size,
-        args.skip_examples,
         sizes_to_generate,
+        args.skip_examples,
     )
