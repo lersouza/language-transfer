@@ -52,10 +52,10 @@ def determine_type_of_experiment(base_data: pd.DataFrame) -> pd.DataFrame:
     Determine the type of experiment based on the initialization language.
     """
     def _define_typeof_experiment(row):
-        if row["source"].endswith("2") and row["source"][:-1] == row["target"]:
+        if row["init_language"][-1].isdigit() and row["init_language"][:-1] == row["target"]:
             return "upper_bound"
 
-        if row["source"] == "nonsense":
+        if row["init_language"] == "nonsense":
             return "lower_bound"
         
         if (
@@ -72,6 +72,8 @@ def determine_type_of_experiment(base_data: pd.DataFrame) -> pd.DataFrame:
         return "unknown"
 
     base_data["experiment_type"] = base_data.apply(_define_typeof_experiment, axis=1)
+
+    return base_data
 
 
 def add_integer_size_columns(base_data: pd.DataFrame) -> pd.DataFrame:
@@ -108,7 +110,7 @@ def preprocess(args):
     Perform preprocessing routines to a raw dataset
     in order to be able to calculate the metrics D_e and D_t.
     """
-    dataset = pd.read_csv(args.results_file)
+    dataset = pd.read_csv(args.results_file, index_col=0)
 
     # Transforms
     dataset = fill_missing_data(dataset)
@@ -118,6 +120,9 @@ def preprocess(args):
 
     # Deduplicate Experiments
     dataset = dedup_experiments(dataset)
+
+    # Add the experiment type
+    dataset = determine_type_of_experiment(dataset)
 
     # Save the preprocessed dataset
     dataset.to_csv(args.output_file, index=False)
