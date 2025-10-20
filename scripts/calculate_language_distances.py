@@ -32,10 +32,6 @@ DEFAULT_DISTANCES = [
 SYNTHETIC_LANGUAGES = ["nonsense"]
 
 
-# Mapping to resolve language variants to its original names.
-LANGUAGE_MAPPING = {"en2": "en", "en3": "en", "ar2": "ar", "zh2": "zh"}
-
-
 # The Maximum distances between 2 languages.
 MAXIMUM_DISTANCE = 1.0
 
@@ -235,9 +231,9 @@ def compute_distance_for_pair(row: pd.Series, distance_name: str):
     # Handle cases where the model is initialized with a Synthetic language
     if source in SYNTHETIC_LANGUAGES or source == "scratch":
         return MAXIMUM_DISTANCE
-
-    source = LANGUAGE_MAPPING.get(source, source)
-    target = LANGUAGE_MAPPING.get(target, target)
+    
+    source = source[:-1] if source[-1].isdigit() else source
+    target = target[:-1] if target[-1].isdigit() else target
 
     lang_a = ISO_639_1_TO_3.get(source)
     lang_b = ISO_639_1_TO_3.get(target)
