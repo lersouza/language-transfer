@@ -135,7 +135,12 @@ def should_take_out(exp, filter):
     return False
 
 
-def retrieve_results(experiment, target_dir, metrics_dir: str = "training_eval", exp_language_key: str = "target"):
+def retrieve_results(
+    experiment,
+    target_dir,
+    metrics_dir: str = "training_eval",
+    exp_language_key: str = "target",
+):
     """
     For any given (existing) `experiment`, retrieve all its results.
     The results are saved in `target_dir` under the name it was found in the bucket.
@@ -206,7 +211,9 @@ def process_experiment_results(experiment, local_files):
     return final_metrics
 
 
-def aggregate_results(experiments, metrics_dir: str = "training_eval", exp_language_key: str = "target"):
+def aggregate_results(
+    experiments, metrics_dir: str = "training_eval", exp_language_key: str = "target"
+):
     """
     Aggregates the results of all experiments and return them as a dictionary,
     where each key represents a column for a list of values.
@@ -282,8 +289,20 @@ def retrieve_run_results(
         f" {len(filtered_experiments)}"
     )
 
-    all_experiment_results = aggregate_results(filtered_experiments, metrics_dir, exp_language_key)
+    all_experiment_results = aggregate_results(
+        filtered_experiments, metrics_dir, exp_language_key
+    )
     return pd.DataFrame.from_dict(all_experiment_results)
+
+
+def retrieve_finetune_results():
+    """
+    Retrive finetune results from both `models/finetune` and `models/finetune_v2` folders in GCS.
+    """
+    df1 = retrieve_run_results("models/finetune/")
+    df2 = retrieve_run_results("models/finetune_v2/")
+
+    return pd.concat([df1, df2])
 
 
 def retrieve_dataset_stats():
@@ -301,9 +320,21 @@ def retrieve_pretrain_results():
     Retrieve results from pretraining experiments with source languages in GCS
     and return a Data Frame consolidating its data.
     """
-    return retrieve_run_results(
-        "models/pretrained/", PRETRAIN_PATTERN, PRETRAIN_TO_REMOVE, exp_language_key="source"
+    df1 = retrieve_run_results(
+        "models/pretrained/",
+        PRETRAIN_PATTERN,
+        PRETRAIN_TO_REMOVE,
+        exp_language_key="source",
     )
+
+    df2 = retrieve_run_results(
+        "models/pretrained_v2/",
+        PRETRAIN_PATTERN,
+        PRETRAIN_TO_REMOVE,
+        exp_language_key="source",
+    )
+
+    return pd.concat([df1, df2])
 
 
 def export_experiments_to_csv(info_to_retrieve: str):
@@ -332,7 +363,7 @@ def export_experiments_to_csv(info_to_retrieve: str):
 
 # Possible results to retrieve
 AVAILABLE_RESULTS = {
-    "finetune": retrieve_run_results,
+    "finetune": retrieve_finetune_results,
     "datasets": retrieve_dataset_stats,
     "pretrain": retrieve_pretrain_results,
 }
