@@ -9,7 +9,7 @@ BUCKET_NAME=${BUCKET_NAME:="lang_agnostic"}
 DATA_SIZE="6B"
 MODEL_DIR="gs://${BUCKET_NAME}/models/pretrained/pretrained_${LANGUAGE}_small_${DATA_SIZE}/"
 
-export PYTHONPATH="./"
+export PYTHONPATH="./:./lang_transfer"
 
 if [ -z "$LANGUAGE" ]; then
   echo "Please, provide a language for pretraining."
